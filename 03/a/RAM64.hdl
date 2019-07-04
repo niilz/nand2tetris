@@ -1,0 +1,69 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/03/a/RAM64.hdl
+
+/**
+ * Memory of 64 registers, each 16 bit-wide. Out holds the value
+ * stored at the memory location specified by address. If load==1, then 
+ * the in value is loaded into the memory location specified by address 
+ * (the loaded value will be emitted to out from the next time step onward).
+ */
+
+CHIP RAM64 {
+    IN in[16], load, address[6];
+    OUT out[16];
+
+    PARTS:
+    // Put your code here:
+    // FIRST ATTEMPT
+    // Not(in=address[3], out=NotLow);
+    // Not(in=address[4], out=NotMiddle);
+    // Not(in=address[5], out=NotHigh);
+
+    // And(a=NotLow, b=NotMiddle, out=NotLM);
+    // And(a=NotLow, b=NotHigh, out=NotLH);
+    // And(a=NotMiddle, b=NotHigh, out=NotMH);
+    // And(a=NotLM, b=NotHigh, out=NotLMH);
+
+    // // load8
+    // And(a=NotLMH, b=load, out=load8);
+    // // load16
+    // And(a=NotMH, b=address[3], out=Xload16);
+    // And(a=Xload16, b=load, out=load16);
+    // // load24
+    // And(a=NotLH, b=address[4], out=Xload24);
+    // And(a=Xload24, b=load, out=load24);
+    // // load32
+    // And(a=NotHigh, b=address[3], out=Xload32);
+    // And(a=Xload32, b=address[4], out=Yload32);
+    // And(a=Yload32, b=load, out=load32);
+    // // load40
+    // And(a=NotLM, b=address[5], out=Xload40);
+    // And(a=Xload40, b=load, out=load40);
+    // // load48
+    // And(a=address[5], b=address[3], out=Xload48);
+    // And(a=Xload48, b=NotMiddle, out=Yload48);
+    // And(a=Yload48, b=load, out=load48);
+    // // load56
+    // And(a=address[5], b=address[4], out=Xload56);
+    // And(a=Xload56, b=NotLow, out=Yload56);
+    // And(a=Yload56, b=load, out=load56);
+    // // load64
+    // And(a=address[5], b=address[4], out=Xload64);
+    // And(a=Xload64, b=address[3], out=Yload64);
+    // And(a=Yload64, b=load, out=load64);
+
+    DMux8Way(in=load, sel=address[3..5], a=load8, b=load16, c=load24, d=load32, e=load40, f=load48, g=load56, h=load64);
+    
+    RAM8(in=in, load=load8, address=address[0..2], out=RAM8);
+    RAM8(in=in, load=load16, address=address[0..2], out=RAM16);
+    RAM8(in=in, load=load24, address=address[0..2], out=RAM24);
+    RAM8(in=in, load=load32, address=address[0..2], out=RAM32);
+    RAM8(in=in, load=load40, address=address[0..2], out=RAM40);
+    RAM8(in=in, load=load48, address=address[0..2], out=RAM48);
+    RAM8(in=in, load=load56, address=address[0..2], out=RAM56);
+    RAM8(in=in, load=load64, address=address[0..2], out=RAM64);
+
+    Mux8Way16(a=RAM8, b=RAM16, c=RAM24, d=RAM32, e=RAM40, f=RAM48, g=RAM56, h=RAM64, sel=address[3..5], out=out);
+}
