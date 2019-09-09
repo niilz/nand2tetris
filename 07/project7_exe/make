@@ -1,0 +1,5 @@
+#!/bin/bash
+
+rustc --version
+rustc VMTranslator.rs
+chmod +x VMTranslator
