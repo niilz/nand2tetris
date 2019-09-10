@@ -96,7 +96,11 @@ mod tests {
         assert_eq!(parse_line("label MY_COOL_LABEL"), Com::Label("MY_COOL_LABEL".to_string()));
     }
     #[test]
-    fn returns_branch_com() {
+    fn returns_if_goto_com() {
         assert_eq!(parse_line("if-goto MY_COOL_LABEL"), Com::Branch("if-goto".to_string(), "MY_COOL_LABEL".to_string()));
+    }
+    #[test]
+    fn returns_goto_com() {
+        assert_eq!(parse_line("goto MY_COOL_LABEL"), Com::Branch("goto".to_string(), "MY_COOL_LABEL".to_string()));
     }
 }

@@ -120,9 +120,13 @@ pub fn write_label(label: &str) -> String {
     format!("\n({})", label)
 }
 pub fn write_branch(condition: &str, label: &str) -> String {
-    let comment = format!("\n// If condition is met, JMP to LABEL: {}\n", label);
-    let asm_string= format!("{} A=M @{} D;JNE", sp_down(), label);
-    comment + &asm_new_line_concat(&asm_string)
+    let comment = format!("\n// JMP to LABEL: {}\n", label);
+    let condition_asm = match condition {
+        "goto" => format!("{} @{} NULL;JMP", sp_down(), label),
+        "if-goto" => format!("{} D=M @{} D;JNE", sp_down(), label),
+        _ => panic!("Unknown branching command: '{}' has been parsed to 'write_branch'.", condition),
+    };
+    comment + &asm_new_line_concat(&condition_asm)
 }
 
 // Helper to split a string (on whitespace) and concat it again with \n .
@@ -254,12 +258,16 @@ mod tests {
     // Test Branch-commands
     #[test]
     fn if_goto_label_works() {
-        assert_eq!(write_branch("if-goto", "LABEL_BAMBI"), "XX");
+        assert_eq!(write_branch("if-goto", "LABEL_BAMBI"), "\n// JMP to LABEL: LABEL_BAMBI\n@SP\nAM=M-1\nD=M\n@LABEL_BAMBI\nD;JNE");
+    }
+    #[test]
+    fn goto_label_works() {
+        assert_eq!(write_branch("goto", "LABEL_BAMBI"), "\n// JMP to LABEL: LABEL_BAMBI\n@SP\nAM=M-1\n@LABEL_BAMBI\nNULL;JMP");
     }
     // Test Label-command
     #[test]
     fn label_my_label_works() {
-        assert_eq!(write_label("A_GREAT_LABEL"), "(A_GREAT_LABEL)");
+        assert_eq!(write_label("A_GREAT_LABEL"), "\n(A_GREAT_LABEL)");
     }
 
     // Helper-functions
