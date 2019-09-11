@@ -122,7 +122,7 @@ pub fn write_label(label: &str) -> String {
 pub fn write_branch(condition: &str, label: &str) -> String {
     let comment = format!("\n// JMP to LABEL: {}\n", label);
     let condition_asm = match condition {
-        "goto" => format!("{} @{} NULL;JMP", sp_down(), label),
+        "goto" => format!("{} @{} 0;JMP", sp_down(), label),
         "if-goto" => format!("{} D=M @{} D;JNE", sp_down(), label),
         _ => panic!("Unknown branching command: '{}' has been parsed to 'write_branch'.", condition),
     };
