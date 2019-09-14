@@ -5,8 +5,8 @@ use std::path::{ Path, PathBuf };
 
 mod translator;
 use translator::parser::{ Com, parse_line };
-use translator::parser::Com::{Empty, Arith, Push, Pop, Label, Branch };
-use translator::code_writer::{ write_arithmetic, write_push, write_pop, write_branch, write_label };
+use translator::parser::Com::*;
+use translator::code_writer::*;
 
 fn main() {
 
@@ -45,6 +45,8 @@ fn main() {
                 Pop(segment, position) => write_pop(segment, *position, line, &file_stem),
                 Label(name) => write_label(name),
                 Branch(condition, label) => write_branch(condition, label),
+                Function(name, locals) => write_function(name, *locals),
+                Return => write_return(),
                 Empty => panic!("An Empty Line was assembled in the writing process. I should have been dropped before.")
             }
         }).collect();

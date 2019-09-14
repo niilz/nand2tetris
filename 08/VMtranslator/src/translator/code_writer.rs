@@ -11,7 +11,7 @@ fn sp_up() -> String {
 // Translates parsed Arithmetic commands (Com::Arith) into HACK-ASM
 pub fn write_arithmetic(method: &str, line_nr: usize) -> String {
 
-    let comment = format!("\n// {}\n", method);
+    let comment = format!("\n// {}", method);
 
     let arith_method = match method {
         "add" | "sub" | "or" | "and" => add_sub_or_and(&method),
@@ -55,7 +55,7 @@ fn eq_gt_lt(method: &str, label_nr: usize) -> String {
 
 // Translates parsed push-commands (Com::Push) into HACK-ASM
 pub fn write_push(segment: &str, position: u32, file: &str) -> String {
-    let comment = format!("\n// push {} {}\n", segment, position);
+    let comment = format!("\n// push {} {}", segment, position);
     
     if segment == "static" {
         let asm_segment = format!("@{}.{} D=M @SP A=M M=D {}", file, position, sp_up());
@@ -86,7 +86,7 @@ pub fn write_push(segment: &str, position: u32, file: &str) -> String {
 
 // Translates parsed pop-commands (Com::Pop) into HACK-ASM
 pub fn write_pop(segment: &str, position: u32, dest_id: usize, file: &str) -> String {
-    let comment = format!("\n// pop {} {}\n", segment, position);
+    let comment = format!("\n// pop {} {}", segment, position);
     
     if segment == "pointer" {
         let segment_asm = match position {
@@ -120,7 +120,7 @@ pub fn write_label(label: &str) -> String {
     format!("\n({})", label)
 }
 pub fn write_branch(condition: &str, label: &str) -> String {
-    let comment = format!("\n// JMP to LABEL: {}\n", label);
+    let comment = format!("\n// JMP to LABEL: {}", label);
     let condition_asm = match condition {
         "goto" => format!("{} @{} 0;JMP", sp_down(), label),
         "if-goto" => format!("{} D=M @{} D;JNE", sp_down(), label),
@@ -129,10 +129,43 @@ pub fn write_branch(condition: &str, label: &str) -> String {
     comment + &asm_new_line_concat(&condition_asm)
 }
 
+pub fn write_function(name: &str, locals: u32) -> String {
+    let comment = format!("\n// Function '{}' with {} local variables", name, locals);
+    //let safe_caller_frame = "@SP D=M @CSP M=D @LCL D=M @CLCL M=D @ARG D=M @CARG M=D @THIS D=M @CTHIS M=D @THAT D=M @CTHAT M=D";
+    let label = format!("({})", name);
+    // Set n-locals to 0
+    let set_locals: String = (0..locals).fold("\n".to_string(), |mut zeros, _| format!("{}\n{}", zeros, write_push("local", 0, "NONE")));
+
+    comment + &asm_new_line_concat(&label) + &set_locals
+}
+
+pub fn write_return() -> String {
+    let comment = format!("\n// RETURN");
+    //let restore_caller_frame = format!("{} @CSP D=M @311 D=A @SP M=D @CLCL D=M @LCL M=D @CARG D=M @ARG M=D @CTHIS D=M @THIS M=D @CTHAT D=M @THAT M=D", sp_down());
+    // Put last value at position of ARG, move SP right this position after.
+    let restore_sp = format!("{} @SP A=M D=M @ARG A=M M=D @ARG D=M @SP M=D {}", sp_down(), sp_up());
+    // Restore rest of saved frame values.
+    // (By substracting 1-5 from LCL)
+    let restore_that = format!("@1 D=A @LCL A=M-D D=M @THAT M=D");
+    let restore_this = format!("@2 D=A @LCL A=M-D D=M @THIS M=D");
+    let restore_arg = format!("@3 D=A @LCL A=M-D D=M @ARG M=D");
+    let restore_lcl = format!("@4 D=A @LCL A=M-D D=M @LCL M=D");
+    //let restore_return = format!("@5 D=A @LCL D=M-D @ M=D", );
+
+    comment
+        + &asm_new_line_concat(&restore_sp)
+        + &asm_new_line_concat(&restore_that) 
+        + &asm_new_line_concat(&restore_this) 
+        + &asm_new_line_concat(&restore_arg) 
+        + &asm_new_line_concat(&restore_lcl) 
+
+}
+
 // Helper to split a string (on whitespace) and concat it again with \n .
 fn asm_new_line_concat(asm_string: &str) -> String {
-    asm_string.split(" ").collect::<Vec<&str>>().join("\n")
+    asm_string.split(" ").fold("".to_string(), |asm, inst| format!("{}\n{}", asm, inst))
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -184,7 +217,7 @@ mod tests {
     // Tests push-commands
     #[test]
     fn push_static_works() {
-        let comment = "\n// push constant 99\n".to_string();
+        let comment = "\n// push constant 99".to_string();
         let push_static_99_string = asm_new_line_concat("@99 D=A @SP A=M M=D @SP M=M+1");
         assert_eq!(write_push("constant", 99, ""), comment + &push_static_99_string);
     }
@@ -262,17 +295,27 @@ mod tests {
     }
     #[test]
     fn goto_label_works() {
-        assert_eq!(write_branch("goto", "LABEL_BAMBI"), "\n// JMP to LABEL: LABEL_BAMBI\n@SP\nAM=M-1\n@LABEL_BAMBI\nNULL;JMP");
+        assert_eq!(write_branch("goto", "LABEL_BAMBI"), "\n// JMP to LABEL: LABEL_BAMBI\n@SP\nAM=M-1\n@LABEL_BAMBI\n0;JMP");
     }
     // Test Label-command
     #[test]
     fn label_my_label_works() {
         assert_eq!(write_label("A_GREAT_LABEL"), "\n(A_GREAT_LABEL)");
     }
+    // Test Function-command
+    #[test]
+    fn write_function_works() {
+        assert_eq!(write_function("cals_some_stuff.0", 3), "\n// Function \'cals_some_stuff.0\' with 3 local variables\n(cals_some_stuff.0)\n\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1");
+    }
+    // Test Return-command
+    #[test]
+    fn return_works() {
+        assert_eq!(write_return(), "\n// RETURN\n@SP\nAM=M-1\n@SP\nA=M\nD=M\n@ARG\nA=M\nM=D\n@ARG\nD=M\n@SP\nM=D\n@SP\nM=M+1\n@1\nD=A\n@LCL\nA=M-D\nD=M\n@THAT\nM=D\n@2\nD=A\n@LCL\nA=M-D\nD=M\n@THIS\nM=D\n@3\nD=A\n@LCL\nA=M-D\nD=M\n@ARG\nM=D\n@4\nD=A\n@LCL\nA=M-D\nD=M\n@LCL\nM=D");
+    }
 
     // Helper-functions
     #[test]
     fn concat_asm_string_with_new_line() {
-        assert_eq!(asm_new_line_concat("@sp test works just fine"), "@sp\ntest\nworks\njust\nfine");
+        assert_eq!(asm_new_line_concat("@sp test works just fine"), "\n@sp\ntest\nworks\njust\nfine");
     }
 }

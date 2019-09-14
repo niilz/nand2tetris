@@ -8,6 +8,8 @@ pub enum Com {
     Arith(String),
     Label(String),
     Branch(String, String),
+    Function(String, u32),
+    Return,
 }
 
 // Cleanes a given line (e.g. from comments)
@@ -33,23 +35,31 @@ pub fn parse_line(line: &str) -> Com {
     let com_fields: Vec<&str> = com.split(" ").collect();
 
     match com_fields[..] {
-        [arith] => Com::Arith(arith.to_string()),
-        [cond_or_label, label] => {
-            match cond_or_label {
-                "label" => Com::Label(label.to_string()),
-                branch_com => Com::Branch(branch_com.to_string(), label.to_string()),
+        // Only 1 arg means Arithmetic or Return command
+        [arg0] => {
+            match arg0 {
+                "return" => Com::Return,
+                arith => Com::Arith(arith.to_string()),
             }
-        }
-        [pupo, segment, position] => {
-            let position_option = position.parse::<u32>();
-            let position = match position_option {
+        },
+        // Two args means Label or Branch
+        [arg0, arg1] => {
+            match arg0 {
+                "label" => Com::Label(arg1.to_string()),
+                goto_ifgoto => Com::Branch(goto_ifgoto.to_string(), arg1.to_string()),
+            }
+        },
+        // Three args means Push, Pop or Function command
+        [arg0, arg1, arg2] => {
+            let arg2 = match arg2.parse::<u32>() {
                 Ok(value) => value,
-                Err(message) => panic!("You've passed '{}'. Which could not be parsed. Error: {}", &com_fields[1], message),
+                Err(message) => panic!("Arg2 '{}' (3rd arg) could not be parsed. Error: {}", arg2, message),
             };
-            match &pupo[..] {
-                "push" => Com::Push(segment.to_string(), position),
-                "pop" => Com::Pop(segment.to_string(), position),
-                _ => panic!("Expected command to be push or pop, but the command was neither."),
+            match arg0 {
+                "function" => Com::Function(arg1.to_string(), arg2),
+                "push" => Com::Push(arg1.to_string(), arg2),
+                "pop" => Com::Pop(arg1.to_string(), arg2),
+                _ => panic!("Expected command to be push, pop or function, but the command was neither."),
             }
         },
         _ => panic!("The given line was '{}'. It could not be parsed.", line),
@@ -90,7 +100,7 @@ mod tests {
     #[test]
     fn returns_arithmetic_com() {
         assert_eq!(parse_line("add"), Com::Arith("add".to_string()));
-  }
+    }
     #[test]
     fn returns_label_com() {
         assert_eq!(parse_line("label MY_COOL_LABEL"), Com::Label("MY_COOL_LABEL".to_string()));
@@ -102,5 +112,13 @@ mod tests {
     #[test]
     fn returns_goto_com() {
         assert_eq!(parse_line("goto MY_COOL_LABEL"), Com::Branch("goto".to_string(), "MY_COOL_LABEL".to_string()));
+    }
+    #[test]
+    fn returns_function_com() {
+        assert_eq!(parse_line("function crazy_calc.3 2"), Com::Function("crazy_calc.3".to_string(), 2));
+    }
+    #[test]
+    fn returns_return_com() {
+        assert_eq!(parse_line("return"), Com::Return);
     }
 }
