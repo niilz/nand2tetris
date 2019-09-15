@@ -1,5 +1,22 @@
 use std::path::Path;
 
+use super::parser::Com;
+use super::parser::Com::*;
+
+// Function gets called from main on every line.
+pub fn write_asm(line: usize, command: &Com, file_stem: &str) -> String {
+    match command {
+        Arith(com) => write_arithmetic(com, line),
+        Push(segment, position) => write_push(segment, *position, &file_stem),
+        Pop(segment, position) => write_pop(segment, *position, line, &file_stem),
+        Label(name) => write_label(name),
+        Branch(condition, label) => write_branch(condition, label),
+        Function(name, locals) => write_function(name, *locals),
+        Return => write_return(),
+        Empty => panic!("An Empty Line was assembled in the writing process. I should have been dropped before.")
+    }
+}
+
 // ASM-code-generator-functions
 fn sp_down() -> String {
     "@SP AM=M-1".to_string()
@@ -9,7 +26,7 @@ fn sp_up() -> String {
 }
 
 // Translates parsed Arithmetic commands (Com::Arith) into HACK-ASM
-pub fn write_arithmetic(method: &str, line_nr: usize) -> String {
+fn write_arithmetic(method: &str, line_nr: usize) -> String {
 
     let comment = format!("\n// {}", method);
 
@@ -54,7 +71,7 @@ fn eq_gt_lt(method: &str, label_nr: usize) -> String {
 }
 
 // Translates parsed push-commands (Com::Push) into HACK-ASM
-pub fn write_push(segment: &str, position: u32, file: &str) -> String {
+fn write_push(segment: &str, position: u32, file: &str) -> String {
     let comment = format!("\n// push {} {}", segment, position);
     
     if segment == "static" {
@@ -85,7 +102,7 @@ pub fn write_push(segment: &str, position: u32, file: &str) -> String {
 }
 
 // Translates parsed pop-commands (Com::Pop) into HACK-ASM
-pub fn write_pop(segment: &str, position: u32, dest_id: usize, file: &str) -> String {
+fn write_pop(segment: &str, position: u32, dest_id: usize, file: &str) -> String {
     let comment = format!("\n// pop {} {}", segment, position);
     
     if segment == "pointer" {
@@ -116,10 +133,10 @@ pub fn write_pop(segment: &str, position: u32, dest_id: usize, file: &str) -> St
     comment + &asm_new_line_concat(&asm_string)
 }
 
-pub fn write_label(label: &str) -> String {
+fn write_label(label: &str) -> String {
     format!("\n({})", label)
 }
-pub fn write_branch(condition: &str, label: &str) -> String {
+fn write_branch(condition: &str, label: &str) -> String {
     let comment = format!("\n// JMP to LABEL: {}", label);
     let condition_asm = match condition {
         "goto" => format!("{} @{} 0;JMP", sp_down(), label),
@@ -129,17 +146,17 @@ pub fn write_branch(condition: &str, label: &str) -> String {
     comment + &asm_new_line_concat(&condition_asm)
 }
 
-pub fn write_function(name: &str, locals: u32) -> String {
+fn write_function(name: &str, locals: u32) -> String {
     let comment = format!("\n// Function '{}' with {} local variables", name, locals);
     //let safe_caller_frame = "@SP D=M @CSP M=D @LCL D=M @CLCL M=D @ARG D=M @CARG M=D @THIS D=M @CTHIS M=D @THAT D=M @CTHAT M=D";
     let label = format!("({})", name);
     // Set n-locals to 0
-    let set_locals: String = (0..locals).fold("\n".to_string(), |mut zeros, _| format!("{}\n{}", zeros, write_push("local", 0, "NONE")));
+    let set_locals: String = (0..locals).fold("\n".to_string(), |zeros, _| format!("{}\n{}", zeros, write_push("local", 0, "NONE")));
 
     comment + &asm_new_line_concat(&label) + &set_locals
 }
 
-pub fn write_return() -> String {
+fn write_return() -> String {
     let comment = format!("\n// RETURN");
     //let restore_caller_frame = format!("{} @CSP D=M @311 D=A @SP M=D @CLCL D=M @LCL M=D @CARG D=M @ARG M=D @CTHIS D=M @THIS M=D @CTHAT D=M @THAT M=D", sp_down());
     // Put last value at position of ARG, move SP right this position after.

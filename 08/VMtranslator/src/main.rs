@@ -4,9 +4,9 @@ use std::io::prelude::*;
 use std::path::{ Path, PathBuf };
 
 mod translator;
-use translator::parser::{ Com, parse_line };
-use translator::parser::Com::*;
-use translator::code_writer::*;
+use translator::parser::Com;
+use translator::parser::{ parse_line };
+use translator::code_writer::{ write_asm };
 
 fn main() {
 
@@ -15,11 +15,13 @@ fn main() {
     let input_path = if args.len() == 2 {
             &args[1]
         } else {
-            panic!("Please specify input file!")
+            panic!("Please specify input file or folder!")
         };
 
     let path = Path::new(input_path);
+
     let file_stem = path.file_stem().unwrap().to_str().unwrap();
+
     let output_file = file_stem.to_string() + ".asm";
     let output_path: PathBuf = [path.parent().unwrap().to_str().unwrap(), &output_file].iter().collect();
 
@@ -38,18 +40,11 @@ fn main() {
                         .filter(|command| command != &Com::Empty)
                         .collect();
 
-    let asm_result_vec: Vec<String> = parsed_lines.iter().enumerate().map(|(line, command)| {
-            match command {
-                Arith(com) => write_arithmetic(com, line),
-                Push(segment, position) => write_push(segment, *position, &file_stem),
-                Pop(segment, position) => write_pop(segment, *position, line, &file_stem),
-                Label(name) => write_label(name),
-                Branch(condition, label) => write_branch(condition, label),
-                Function(name, locals) => write_function(name, *locals),
-                Return => write_return(),
-                Empty => panic!("An Empty Line was assembled in the writing process. I should have been dropped before.")
-            }
-        }).collect();
+    let asm_result_vec: Vec<String> = parsed_lines
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(line, command)| write_asm(line, command, &file_stem))
+                                        .collect();
 
     // Create the output file.
     let mut asm_file = match File::create(&output_path) {
