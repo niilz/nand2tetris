@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use super::parser::Com;
 use super::parser::Com::*;
 

@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use std::path::{ Path, PathBuf };
 
 mod translator;
+use translator::arg_handler::{ path_builder };
 use translator::parser::Com;
 use translator::parser::{ parse_line };
 use translator::code_writer::{ write_asm };
@@ -18,15 +19,13 @@ fn main() {
             panic!("Please specify input file or folder!")
         };
 
-    let path = Path::new(input_path);
-
-    let file_stem = path.file_stem().unwrap().to_str().unwrap();
-
-    let output_file = file_stem.to_string() + ".asm";
-    let output_path: PathBuf = [path.parent().unwrap().to_str().unwrap(), &output_file].iter().collect();
-
+    // Pass command-line-arg to path_builder to get a file-name-label, an output-path and a list of vm-files.
+    // (If input_path is a file, the paths Vec only containes one path.)
+    let (file_stem, output_path, paths) = path_builder(Path::new(input_path));
+    
+    // let file_stem = output_path.file_stem().unwrap().to_str().unwrap();
     // Read input file (specified through command-line)
-    let file = read_to_string(input_path);
+    let file = read_to_string(input_path );
     let file_as_str = match file {
         Ok(content) => content,
         Err(message) => panic!("File at path '{}‘ could not be read: {}", input_path, message),
