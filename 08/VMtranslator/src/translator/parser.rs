@@ -9,6 +9,7 @@ pub enum Com {
     Label(String),
     Branch(String, String),
     Function(String, u32),
+    Call(String, u32),
     Return,
 }
 
@@ -59,7 +60,8 @@ pub fn parse_line(line: &str) -> Com {
                 "function" => Com::Function(arg1.to_string(), arg2),
                 "push" => Com::Push(arg1.to_string(), arg2),
                 "pop" => Com::Pop(arg1.to_string(), arg2),
-                _ => panic!("Expected command to be push, pop or function, but the command was neither."),
+                "call" => Com::Call(arg1.to_string(), arg2),
+                _ => panic!("Expected command to be push, pop or function, but the command was '{}'.", arg0),
             }
         },
         _ => panic!("The given line was '{}'. It could not be parsed.", line),
@@ -120,5 +122,9 @@ mod tests {
     #[test]
     fn returns_return_com() {
         assert_eq!(parse_line("return"), Com::Return);
+    }
+    #[test]
+    fn returns_call_com() {
+        assert_eq!(parse_line("call myFunc.main 4"), Com::Call("myFunc.main".to_string(), 4));
     }
 }

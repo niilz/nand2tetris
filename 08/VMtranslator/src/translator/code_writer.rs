@@ -9,7 +9,8 @@ pub fn write_asm(line: usize, command: &Com, file_stem: &str) -> String {
         Pop(segment, position) => write_pop(segment, *position, line, &file_stem),
         Label(name) => write_label(name),
         Branch(condition, label) => write_branch(condition, label),
-        Function(name, locals) => write_function(name, *locals),
+        Function(name, locals) => write_function(file_stem, name, *locals),
+        Call(name, args) => write_call(name, *args),
         Return => write_return(),
         Empty => panic!("An Empty Line was assembled in the writing process. I should have been dropped before.")
     }
@@ -144,12 +145,12 @@ fn write_branch(condition: &str, label: &str) -> String {
     comment + &asm_new_line_concat(&condition_asm)
 }
 
-fn write_function(name: &str, locals: u32) -> String {
+fn write_function(file_name: &str, name: &str, locals: u32) -> String {
     let comment = format!("\n// Function '{}' with {} local variables", name, locals);
     //let safe_caller_frame = "@SP D=M @CSP M=D @LCL D=M @CLCL M=D @ARG D=M @CARG M=D @THIS D=M @CTHIS M=D @THAT D=M @CTHAT M=D";
-    let label = format!("({})", name);
+    let label = format!("({}.{})", file_name, name);
     // Set n-locals to 0
-    let set_locals: String = (0..locals).fold("\n".to_string(), |zeros, _| format!("{}\n{}", zeros, write_push("local", 0, "NONE")));
+    let set_locals: String = (0..locals).fold("".to_string(), |zeros, _| format!("{}\n{}", zeros, write_push("local", 0, "NONE")));
 
     comment + &asm_new_line_concat(&label) + &set_locals
 }
@@ -174,6 +175,12 @@ fn write_return() -> String {
         + &asm_new_line_concat(&restore_arg) 
         + &asm_new_line_concat(&restore_lcl) 
 
+}
+
+fn write_call(name: &str, args: u32) -> String {
+    let comment = format!("\n// Call '{}' with {} args", name, args);
+    let call = format!("@{}", name);
+    comment + &asm_new_line_concat(&call)
 }
 
 // Helper to split a string (on whitespace) and concat it again with \n .
@@ -320,12 +327,17 @@ mod tests {
     // Test Function-command
     #[test]
     fn write_function_works() {
-        assert_eq!(write_function("cals_some_stuff.0", 3), "\n// Function \'cals_some_stuff.0\' with 3 local variables\n(cals_some_stuff.0)\n\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1");
+        assert_eq!(write_function("vmFile", "cals_some_stuff.0", 3), "\n// Function \'cals_some_stuff.0\' with 3 local variables\n(vmFile.cals_some_stuff.0)\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1");
     }
     // Test Return-command
     #[test]
-    fn return_works() {
+    fn write_return_works() {
         assert_eq!(write_return(), "\n// RETURN\n@SP\nAM=M-1\n@SP\nA=M\nD=M\n@ARG\nA=M\nM=D\n@ARG\nD=M\n@SP\nM=D\n@SP\nM=M+1\n@1\nD=A\n@LCL\nA=M-D\nD=M\n@THAT\nM=D\n@2\nD=A\n@LCL\nA=M-D\nD=M\n@THIS\nM=D\n@3\nD=A\n@LCL\nA=M-D\nD=M\n@ARG\nM=D\n@4\nD=A\n@LCL\nA=M-D\nD=M\n@LCL\nM=D");
+    }
+    // Test Call-command
+    #[test]
+    fn write_call_works() {
+        assert_eq!(write_call("theGreatFunc", 4), "\n// Call 'theGreatFunc' with 4 args\n// ASM CODE IS NOT IMPLEMENTED YET");
     }
 
     // Helper-functions

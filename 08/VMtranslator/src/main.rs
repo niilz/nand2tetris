@@ -4,7 +4,8 @@ use std::io::prelude::*;
 use std::path::{ Path, PathBuf };
 
 mod translator;
-use translator::arg_handler::{ path_builder };
+mod arg_handler;
+use arg_handler::{ path_builder };
 use translator::parser::Com;
 use translator::parser::{ parse_line };
 use translator::code_writer::{ write_asm };
@@ -19,21 +20,22 @@ fn main() {
             panic!("Please specify input file or folder!")
         };
 
-    // Pass command-line-arg to path_builder to get a file-name-label, an output-path and a list of vm-files.
-    // (If input_path is a file, the paths Vec only containes one path.)
+    // Pass command-line-arg to path_builder to get:
+    // a file-name-label (file_stem), an output-path and a list of vm-files.
+    // (If input_path is a file (not a dir), the paths Vec only containes one path.)
     let (file_stem, output_path, paths) = path_builder(Path::new(input_path));
-    
-    // let file_stem = output_path.file_stem().unwrap().to_str().unwrap();
+  
     // Read input file (specified through command-line)
-    let file = read_to_string(input_path );
-    let file_as_str = match file {
-        Ok(content) => content,
-        Err(message) => panic!("File at path '{}‘ could not be read: {}", input_path, message),
-    };
+    let files_as_str = paths.iter().enumerate().fold(String::new(), |file, (i, path)| {
+        match read_to_string(path) {
+            Ok(content) => file + &content,
+            Err(message) => panic!("File at path '{}‘ could not be read: {}", input_path, message),
+        }
+    });
     
 
     // PARSE given file
-    let parsed_lines: Vec<Com> = file_as_str
+    let parsed_lines: Vec<Com> = files_as_str
                         .split("\n")
                         .map(|line| parse_line(line))
                         .filter(|command| command != &Com::Empty)

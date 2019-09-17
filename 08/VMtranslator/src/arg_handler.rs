@@ -2,7 +2,7 @@ use std::path::{ Path, PathBuf };
 
 pub fn path_builder(path: &Path) -> (String, PathBuf, Vec<PathBuf>) {
     
-    let mut file_stem;
+    let file_stem;
 
     let output_file = (match path.is_dir() {
             true  => {
