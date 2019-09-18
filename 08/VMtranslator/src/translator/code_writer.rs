@@ -9,7 +9,7 @@ pub fn write_asm(line: usize, command: &Com, file_stem: &str) -> String {
         Pop(segment, position) => write_pop(segment, *position, line, &file_stem),
         Label(name) => write_label(name),
         Branch(condition, label) => write_branch(condition, label),
-        Function(name, locals) => write_function(file_stem, name, *locals),
+        Function(name, locals) => write_function(name, *locals),
         Call(name, args) => write_call(name, *args),
         Return => write_return(),
         Empty => panic!("An Empty Line was assembled in the writing process. I should have been dropped before.")
@@ -145,26 +145,28 @@ fn write_branch(condition: &str, label: &str) -> String {
     comment + &asm_new_line_concat(&condition_asm)
 }
 
-fn write_function(file_name: &str, name: &str, locals: u32) -> String {
-    let comment = format!("\n// Function '{}' with {} local variables", name, locals);
-    //let safe_caller_frame = "@SP D=M @CSP M=D @LCL D=M @CLCL M=D @ARG D=M @CARG M=D @THIS D=M @CTHIS M=D @THAT D=M @CTHAT M=D";
-    let label = format!("({}.{})", file_name, name);
+fn write_function(name: &str, locals: u32) -> String {
+    let comment = format!("\n// Function '{}' with {} local variables\n@11111", name, locals);
+    let label = format!("({})", name);
     // Set n-locals to 0
-    let set_locals: String = (0..locals).fold("".to_string(), |zeros, _| format!("{}\n{}", zeros, write_push("local", 0, "NONE")));
+    let set_locals: String = (0..locals).fold("".to_string(), |zeros, l| format!("{} @{:?} D=A @LCL A=M+D M=0", zeros, l));
+    let set_sp_after_lcl = format!("@{} D=A @SP M=M+D", locals);
 
-    comment + &asm_new_line_concat(&label) + &set_locals
+    comment
+        + &asm_new_line_concat(&label)
+        + &asm_new_line_concat(&set_locals)
+        + &asm_new_line_concat(&set_sp_after_lcl)
 }
 
 fn write_return() -> String {
-    let comment = format!("\n// RETURN");
-    //let restore_caller_frame = format!("{} @CSP D=M @311 D=A @SP M=D @CLCL D=M @LCL M=D @CARG D=M @ARG M=D @CTHIS D=M @THIS M=D @CTHAT D=M @THAT M=D", sp_down());
+    let comment = format!("\n// RETURN\n@12121");
     // Put last value at position of ARG, move SP right this position after.
     let restore_sp = format!("{} @SP A=M D=M @ARG A=M M=D @ARG D=M @SP M=D {}", sp_down(), sp_up());
     // Restore rest of saved frame values.
     // (By substracting 1-5 from LCL)
     let restore_that = format!("@1 D=A @LCL A=M-D D=M @THAT M=D");
     let restore_this = format!("@2 D=A @LCL A=M-D D=M @THIS M=D");
-    let restore_arg = format!("@3 D=A @LCL A=M-D D=M @ARG M=D");
+    let restore_arg = format!("@5 D=A @args D=M+D @LCL D=M-D @ARG M=D");
     let restore_lcl = format!("@4 D=A @LCL A=M-D D=M @LCL M=D");
     //let restore_return = format!("@5 D=A @LCL D=M-D @ M=D", );
 
@@ -178,9 +180,29 @@ fn write_return() -> String {
 }
 
 fn write_call(name: &str, args: u32) -> String {
-    let comment = format!("\n// Call '{}' with {} args", name, args);
-    let call = format!("@{}", name);
-    comment + &asm_new_line_concat(&call)
+    let comment = format!("\n// Call '{}' with {} args\n@13131", name, args);
+    // Save callers frame.
+    let save_amount_of_args = format!("@{} D=A @args M=D", args);
+    let set_args = (0..args).fold("".to_string(), |asm, _| format!("{} @9999 D=A @SP A=M M=D {}", asm, sp_up()));
+    let return_val = format!("@8080 A=M D=M @SP A=M M=D {}", sp_up());
+    let push_lcl = format!("@LCL D=M @SP A=M M=D {}", sp_up());
+    let push_arg = format!("@ARG D=M @SP A=M M=D {}", sp_up());
+    let push_this = format!("@THIS D=M @SP A=M M=D {}", sp_up());
+    let push_that = format!("@THAT D=M @SP A=M M=D {}", sp_up());
+    let set_lcl = format!("@SP D=M @LCL M=D");
+    let set_arg = format!("@5 D=A @{} D=A+D @LCL D=M-D @ARG M=D", args);
+    let call = format!("@{} 0;JMP", name);
+    comment
+    + &asm_new_line_concat(&save_amount_of_args)
+    + &asm_new_line_concat(&set_args)
+    + &asm_new_line_concat(&return_val)
+    + &asm_new_line_concat(&push_lcl)
+    + &asm_new_line_concat(&push_arg)
+    + &asm_new_line_concat(&push_this)
+    + &asm_new_line_concat(&push_that)
+    + &asm_new_line_concat(&set_lcl)
+    + &asm_new_line_concat(&set_arg)
+    + &asm_new_line_concat(&call)
 }
 
 // Helper to split a string (on whitespace) and concat it again with \n .
