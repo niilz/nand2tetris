@@ -10,7 +10,7 @@ pub fn write_asm(line: usize, command: &Com, file_stem: &str) -> String {
         Label(name) => write_label(name),
         Branch(condition, label) => write_branch(condition, label),
         Function(name, locals) => write_function(name, *locals),
-        Call(name, args) => write_call(name, *args),
+        Call(name, args) => write_call(name, *args, line),
         Return => write_return(),
         Empty => panic!("An Empty Line was assembled in the writing process. I should have been dropped before.")
     }
@@ -138,7 +138,7 @@ fn write_label(label: &str) -> String {
 fn write_branch(condition: &str, label: &str) -> String {
     let comment = format!("\n// JMP to LABEL: {}", label);
     let condition_asm = match condition {
-        "goto" => format!("{} @{} 0;JMP", sp_down(), label),
+        "goto" => format!("@{} 0;JMP", label),
         "if-goto" => format!("{} D=M @{} D;JNE", sp_down(), label),
         _ => panic!("Unknown branching command: '{}' has been parsed to 'write_branch'.", condition),
     };
@@ -164,27 +164,29 @@ fn write_return() -> String {
     let restore_sp = format!("{} @SP A=M D=M @ARG A=M M=D @ARG D=M @SP M=D {}", sp_down(), sp_up());
     // Restore rest of saved frame values.
     // (By substracting 1-5 from LCL)
+    let store_return_temp = format!("@5 D=A @LCL A=M-D D=M @R15 M=D");
     let restore_that = format!("@1 D=A @LCL A=M-D D=M @THAT M=D");
     let restore_this = format!("@2 D=A @LCL A=M-D D=M @THIS M=D");
-    let restore_arg = format!("@5 D=A @args D=M+D @LCL D=M-D @ARG M=D");
+    let restore_arg = format!("@3 D=A @LCL A=M-D D=M @ARG M=D");
     let restore_lcl = format!("@4 D=A @LCL A=M-D D=M @LCL M=D");
-    //let restore_return = format!("@5 D=A @LCL D=M-D @ M=D", );
+    let goto_return = format!("@R15 A=M 0;JMP");
 
     comment
+        + &asm_new_line_concat(&store_return_temp)
         + &asm_new_line_concat(&restore_sp)
         + &asm_new_line_concat(&restore_that) 
         + &asm_new_line_concat(&restore_this) 
         + &asm_new_line_concat(&restore_arg) 
-        + &asm_new_line_concat(&restore_lcl) 
+        + &asm_new_line_concat(&restore_lcl)
+        + &asm_new_line_concat(&goto_return)
 
 }
 
-fn write_call(name: &str, args: u32) -> String {
+fn write_call(name: &str, args: u32, line: usize) -> String {
     let comment = format!("\n// Call '{}' with {} args\n@13131", name, args);
     // Save callers frame.
-    let save_amount_of_args = format!("@{} D=A @args M=D", args);
-    let set_args = (0..args).fold("".to_string(), |asm, _| format!("{} @9999 D=A @SP A=M M=D {}", asm, sp_up()));
-    let return_val = format!("@8080 A=M D=M @SP A=M M=D {}", sp_up());
+    //let push_return_add = format!("@8055 @return.{}.{} D=A @R15 M=D @SP A=M M=D {}", name, line, sp_up()); // line-nr (return-address)
+    let push_return_add = format!("@8055 @return.{}.{} D=A @SP A=M M=D {}", name, line, sp_up()); // line-nr (return-address)
     let push_lcl = format!("@LCL D=M @SP A=M M=D {}", sp_up());
     let push_arg = format!("@ARG D=M @SP A=M M=D {}", sp_up());
     let push_this = format!("@THIS D=M @SP A=M M=D {}", sp_up());
@@ -192,10 +194,9 @@ fn write_call(name: &str, args: u32) -> String {
     let set_lcl = format!("@SP D=M @LCL M=D");
     let set_arg = format!("@5 D=A @{} D=A+D @LCL D=M-D @ARG M=D", args);
     let call = format!("@{} 0;JMP", name);
+    let return_label = format!("(return.{}.{})", name, line);
     comment
-    + &asm_new_line_concat(&save_amount_of_args)
-    + &asm_new_line_concat(&set_args)
-    + &asm_new_line_concat(&return_val)
+    + &asm_new_line_concat(&push_return_add)
     + &asm_new_line_concat(&push_lcl)
     + &asm_new_line_concat(&push_arg)
     + &asm_new_line_concat(&push_this)
@@ -203,6 +204,7 @@ fn write_call(name: &str, args: u32) -> String {
     + &asm_new_line_concat(&set_lcl)
     + &asm_new_line_concat(&set_arg)
     + &asm_new_line_concat(&call)
+    + &asm_new_line_concat(&return_label)
 }
 
 // Helper to split a string (on whitespace) and concat it again with \n .
