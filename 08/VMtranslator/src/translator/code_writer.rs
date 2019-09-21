@@ -16,6 +16,15 @@ pub fn write_asm(line: usize, command: &Com, file_stem: &str) -> String {
     }
 }
 
+// Bootstrap-Code for (calls Sys.init and sets @SP to 261)
+// (only if a directory is passed as command-line-arg...
+//  ... so more than 1 vm-file has to be translated)
+pub fn write_bootstrap() -> String {
+    let comment = "\n// Set SP to 261 and call Sys.init()".to_string();
+    let asm = "@261 D=A @SP M=D @Sys.init 0;JMP";
+    comment + &asm_new_line_concat(asm)
+}
+
 // ASM-code-generator-functions
 fn sp_down() -> String {
     "@SP AM=M-1".to_string()
@@ -23,6 +32,7 @@ fn sp_down() -> String {
 fn sp_up() -> String {
     "@SP M=M+1".to_string()
 }
+
 
 // Translates parsed Arithmetic commands (Com::Arith) into HACK-ASM
 fn write_arithmetic(method: &str, line_nr: usize) -> String {
@@ -217,6 +227,12 @@ fn asm_new_line_concat(asm_string: &str) -> String {
 mod tests {
     use super::*;
 
+    // test bootstrap-code
+    #[test]
+    fn write_bootstrap_code_works() {
+        assert_eq!(write_bootstrap(), "\n// Set SP to 261 and call Sys.init()\n@261\nD=A\n@SP\nM=D\n@Sys.init\n0;JMP");
+    }
+
     // test translation of arithmetic commands to ASM
     #[test]
     fn add_com() {
@@ -341,7 +357,7 @@ mod tests {
     }
     #[test]
     fn goto_label_works() {
-        assert_eq!(write_branch("goto", "LABEL_BAMBI"), "\n// JMP to LABEL: LABEL_BAMBI\n@SP\nAM=M-1\n@LABEL_BAMBI\n0;JMP");
+        assert_eq!(write_branch("goto", "LABEL_BAMBI"), "\n// JMP to LABEL: LABEL_BAMBI\n@LABEL_BAMBI\n0;JMP");
     }
     // Test Label-command
     #[test]
@@ -351,17 +367,17 @@ mod tests {
     // Test Function-command
     #[test]
     fn write_function_works() {
-        assert_eq!(write_function("vmFile", "cals_some_stuff.0", 3), "\n// Function \'cals_some_stuff.0\' with 3 local variables\n(vmFile.cals_some_stuff.0)\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n\n// push local 0\n@0\nD=A\n@LCL\nA=D+M\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1");
+        assert_eq!(write_function("cals_some_stuff.0", 3), "\n// Function \'cals_some_stuff.0\' with 3 local variables\n@11111\n(cals_some_stuff.0)\n\n@0\nD=A\n@LCL\nA=M+D\nM=0\n@1\nD=A\n@LCL\nA=M+D\nM=0\n@2\nD=A\n@LCL\nA=M+D\nM=0\n@3\nD=A\n@SP\nM=M+D");
     }
     // Test Return-command
     #[test]
     fn write_return_works() {
-        assert_eq!(write_return(), "\n// RETURN\n@SP\nAM=M-1\n@SP\nA=M\nD=M\n@ARG\nA=M\nM=D\n@ARG\nD=M\n@SP\nM=D\n@SP\nM=M+1\n@1\nD=A\n@LCL\nA=M-D\nD=M\n@THAT\nM=D\n@2\nD=A\n@LCL\nA=M-D\nD=M\n@THIS\nM=D\n@3\nD=A\n@LCL\nA=M-D\nD=M\n@ARG\nM=D\n@4\nD=A\n@LCL\nA=M-D\nD=M\n@LCL\nM=D");
+        assert_eq!(write_return(), "\n// RETURN\n@12121\n@5\nD=A\n@LCL\nA=M-D\nD=M\n@R15\nM=D\n@SP\nAM=M-1\n@SP\nA=M\nD=M\n@ARG\nA=M\nM=D\n@ARG\nD=M\n@SP\nM=D\n@SP\nM=M+1\n@1\nD=A\n@LCL\nA=M-D\nD=M\n@THAT\nM=D\n@2\nD=A\n@LCL\nA=M-D\nD=M\n@THIS\nM=D\n@3\nD=A\n@LCL\nA=M-D\nD=M\n@ARG\nM=D\n@4\nD=A\n@LCL\nA=M-D\nD=M\n@LCL\nM=D\n@R15\nA=M\n0;JMP");
     }
     // Test Call-command
     #[test]
     fn write_call_works() {
-        assert_eq!(write_call("theGreatFunc", 4), "\n// Call 'theGreatFunc' with 4 args\n// ASM CODE IS NOT IMPLEMENTED YET");
+        assert_eq!(write_call("theGreatFunc", 4, 11), "\n// Call \'theGreatFunc\' with 4 args\n@13131\n@8055\n@return.theGreatFunc.11\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@LCL\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@ARG\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THIS\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THAT\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@SP\nD=M\n@LCL\nM=D\n@5\nD=A\n@4\nD=A+D\n@LCL\nD=M-D\n@ARG\nM=D\n@theGreatFunc\n0;JMP\n(return.theGreatFunc.11)");
     }
 
     // Helper-functions

@@ -1,19 +1,13 @@
 use std::path::{ Path, PathBuf };
 
-pub fn path_builder(path: &Path) -> (String, PathBuf, Vec<PathBuf>) {
-    
-    let file_stem;
+pub fn path_builder(path: &Path) -> (PathBuf, Vec<PathBuf>) {
 
     let output_file = (match path.is_dir() {
             true  => {
                 let file = path.file_name().unwrap();
-                file_stem = file.to_str().unwrap();
                 path.join(file)
             },
-            false => {
-                file_stem = path.file_stem().unwrap().to_str().unwrap();
-                path.to_path_buf()
-            },
+            false => path.to_path_buf(),
         }).with_extension("asm");
 
     let file_paths: Vec<PathBuf> = match path.is_dir() {
@@ -25,9 +19,9 @@ pub fn path_builder(path: &Path) -> (String, PathBuf, Vec<PathBuf>) {
         false => vec![path.to_path_buf()],
     };
 
-    println!("FILE PATHS {:?}", file_paths);
+    println!("{}", file_paths.len());
 
-    (file_stem.to_string(), output_file, file_paths)
+    (output_file, file_paths)
 }
 
 #[cfg(test)]
