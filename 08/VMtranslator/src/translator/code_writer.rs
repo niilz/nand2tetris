@@ -156,7 +156,7 @@ fn write_branch(condition: &str, label: &str) -> String {
 }
 
 fn write_function(name: &str, locals: u32) -> String {
-    let comment = format!("\n// Function '{}' with {} local variables\n@11111", name, locals);
+    let comment = format!("\n// Function '{}' with {} local variables", name, locals);
     let label = format!("({})", name);
     // Set n-locals to 0
     let set_locals: String = (0..locals).fold("".to_string(), |zeros, l| format!("{} @{:?} D=A @LCL A=M+D M=0", zeros, l));
@@ -169,7 +169,7 @@ fn write_function(name: &str, locals: u32) -> String {
 }
 
 fn write_return() -> String {
-    let comment = format!("\n// RETURN\n@12121");
+    let comment = format!("\n// RETURN");
     // Put last value at position of ARG, move SP right this position after.
     let restore_sp = format!("{} @SP A=M D=M @ARG A=M M=D @ARG D=M @SP M=D {}", sp_down(), sp_up());
     // Restore rest of saved frame values.
@@ -193,10 +193,9 @@ fn write_return() -> String {
 }
 
 fn write_call(name: &str, args: u32, line: usize) -> String {
-    let comment = format!("\n// Call '{}' with {} args\n@13131", name, args);
+    let comment = format!("\n// Call '{}' with {} args", name, args);
     // Save callers frame.
-    //let push_return_add = format!("@8055 @return.{}.{} D=A @R15 M=D @SP A=M M=D {}", name, line, sp_up()); // line-nr (return-address)
-    let push_return_add = format!("@8055 @return.{}.{} D=A @SP A=M M=D {}", name, line, sp_up()); // line-nr (return-address)
+    let push_return_add = format!("@return.{}.{} D=A @SP A=M M=D {}", name, line, sp_up()); // line-nr (return-address)
     let push_lcl = format!("@LCL D=M @SP A=M M=D {}", sp_up());
     let push_arg = format!("@ARG D=M @SP A=M M=D {}", sp_up());
     let push_this = format!("@THIS D=M @SP A=M M=D {}", sp_up());
@@ -367,17 +366,17 @@ mod tests {
     // Test Function-command
     #[test]
     fn write_function_works() {
-        assert_eq!(write_function("cals_some_stuff.0", 3), "\n// Function \'cals_some_stuff.0\' with 3 local variables\n@11111\n(cals_some_stuff.0)\n\n@0\nD=A\n@LCL\nA=M+D\nM=0\n@1\nD=A\n@LCL\nA=M+D\nM=0\n@2\nD=A\n@LCL\nA=M+D\nM=0\n@3\nD=A\n@SP\nM=M+D");
+        assert_eq!(write_function("cals_some_stuff.0", 3), "\n// Function \'cals_some_stuff.0\' with 3 local variables\n(cals_some_stuff.0)\n\n@0\nD=A\n@LCL\nA=M+D\nM=0\n@1\nD=A\n@LCL\nA=M+D\nM=0\n@2\nD=A\n@LCL\nA=M+D\nM=0\n@3\nD=A\n@SP\nM=M+D");
     }
     // Test Return-command
     #[test]
     fn write_return_works() {
-        assert_eq!(write_return(), "\n// RETURN\n@12121\n@5\nD=A\n@LCL\nA=M-D\nD=M\n@R15\nM=D\n@SP\nAM=M-1\n@SP\nA=M\nD=M\n@ARG\nA=M\nM=D\n@ARG\nD=M\n@SP\nM=D\n@SP\nM=M+1\n@1\nD=A\n@LCL\nA=M-D\nD=M\n@THAT\nM=D\n@2\nD=A\n@LCL\nA=M-D\nD=M\n@THIS\nM=D\n@3\nD=A\n@LCL\nA=M-D\nD=M\n@ARG\nM=D\n@4\nD=A\n@LCL\nA=M-D\nD=M\n@LCL\nM=D\n@R15\nA=M\n0;JMP");
+        assert_eq!(write_return(), "\n// RETURN\n@5\nD=A\n@LCL\nA=M-D\nD=M\n@R15\nM=D\n@SP\nAM=M-1\n@SP\nA=M\nD=M\n@ARG\nA=M\nM=D\n@ARG\nD=M\n@SP\nM=D\n@SP\nM=M+1\n@1\nD=A\n@LCL\nA=M-D\nD=M\n@THAT\nM=D\n@2\nD=A\n@LCL\nA=M-D\nD=M\n@THIS\nM=D\n@3\nD=A\n@LCL\nA=M-D\nD=M\n@ARG\nM=D\n@4\nD=A\n@LCL\nA=M-D\nD=M\n@LCL\nM=D\n@R15\nA=M\n0;JMP");
     }
     // Test Call-command
     #[test]
     fn write_call_works() {
-        assert_eq!(write_call("theGreatFunc", 4, 11), "\n// Call \'theGreatFunc\' with 4 args\n@13131\n@8055\n@return.theGreatFunc.11\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@LCL\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@ARG\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THIS\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THAT\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@SP\nD=M\n@LCL\nM=D\n@5\nD=A\n@4\nD=A+D\n@LCL\nD=M-D\n@ARG\nM=D\n@theGreatFunc\n0;JMP\n(return.theGreatFunc.11)");
+        assert_eq!(write_call("theGreatFunc", 4, 11), "\n// Call \'theGreatFunc\' with 4 args\n@return.theGreatFunc.11\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@LCL\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@ARG\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THIS\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THAT\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@SP\nD=M\n@LCL\nM=D\n@5\nD=A\n@4\nD=A+D\n@LCL\nD=M-D\n@ARG\nM=D\n@theGreatFunc\n0;JMP\n(return.theGreatFunc.11)");
     }
 
     // Helper-functions

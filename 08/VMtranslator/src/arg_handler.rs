@@ -19,8 +19,6 @@ pub fn path_builder(path: &Path) -> (PathBuf, Vec<PathBuf>) {
         false => vec![path.to_path_buf()],
     };
 
-    println!("{}", file_paths.len());
-
     (output_file, file_paths)
 }
 
@@ -31,19 +29,17 @@ mod tests {
     #[test]
     fn handle_file_path() {
         let input_file = Path::new("../my/great/path/with/singleFile.vm");
-        let file_stem = "singleFile".to_string();
         let output_file = Path::new("../my/great/path/with/singleFile.asm").to_path_buf();
         let paths_to_vm_files = vec![Path::new("../my/great/path/with/singleFile.vm").to_path_buf()];
 
-        assert_eq!(path_builder(input_file), (file_stem, output_file, paths_to_vm_files));
+        assert_eq!(path_builder(input_file), (output_file, paths_to_vm_files));
     }
     #[test]
     fn handle_dir_path() {
         let input_file = Path::new("../my/great/path/with/multiFiles/");
-        let file_stem = "multiFiles".to_string();
         let output_file = Path::new("../my/great/path/with/multiFiles.asm").to_path_buf();
         let paths_to_vm_files = vec![Path::new("../my/great/path/with/multiFiles/").to_path_buf()];
 
-        assert_eq!(path_builder(input_file), (file_stem, output_file, paths_to_vm_files));
+        assert_eq!(path_builder(input_file), (output_file, paths_to_vm_files));
     }
 }
