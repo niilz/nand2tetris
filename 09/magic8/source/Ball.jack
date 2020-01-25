@@ -1,0 +1,149 @@
+class Ball {
+    field int left, top, rad;
+    field Array answers;
+    field int state; // for the pseudo-random number (which is uses for array indexing)
+
+    constructor Ball new() {
+        // Constructor that creates a Ball instance with hardcoded values
+        let left = 232;
+        let top = 150;
+        let rad = 80;
+        // Attach a seed to the ball for pseudo random numbers
+        let state = 1;
+        // Call the drawBall-method to draw the ball on the screen
+        do drawBall(left, top, rad);
+        // Draw an 8 in the white part of the circle
+        do Letters.draw8(14 + (480*7));
+
+        // An array with 10 possible answers
+        let answers = Array.new(10);
+        let answers[0] = "Good n8";
+        let answers[1] = "maybe";
+        let answers[2] = "oy vey";
+        let answers[3] = " sure";
+        let answers[4] = "  42";
+        let answers[5] = " Yes!";
+        let answers[6] = "mmmm..";
+        let answers[7] = "sorry?";
+        let answers[8] = "love it";
+        let answers[9] = "why not";
+        
+        return this;
+    }
+
+    method void drawBall(int x, int y, int r) {
+        // Sets color to black and draws a black circle (a ball)
+        do Screen.setColor(true);
+        do Screen.drawCircle(x, y, r);
+        // Changes color to white and draws a smalle white circle inside the black circle
+        do Screen.setColor(false);
+        do Screen.drawCircle(x, y-37, 27);
+        return;
+    }
+
+    method void shake(int round) {
+        // Define three counter-variables
+        var int count, countUp, countDown, randNr;
+        var Rand rand;
+
+        // Repeat entire movement "count"-times
+        let count = 0;
+        // Creat a random-object with the ball's current seed
+        let rand = Rand.new(state);
+
+        while (count < 3) {
+            // Get a random number (1-9) and update the ball's seed value
+            let randNr = rand.rand();
+
+            // Set movement-counts to 0
+            let countUp = 0;
+            let countDown = 0;
+            // First make a down movement "countDown"-times
+            while (countDown < 5) {
+                do move(5, 5);
+                let countDown = countDown + 1;
+            }
+            // Then move the same distance back up "countUp"-times
+            while (countUp < 5) {
+                do move(-5, -5);
+                let countUp = countUp + 1;
+            }
+            let count = count + 1;
+        }
+        // After the loop draw one last ball with an 8 in the white circle
+        do drawBall(left, top, rad);
+        do Letters.draw8(14 + (480*7));
+        // Wait 0.5sec before door opens
+        do Sys.wait(500);
+        // Open answer-door
+        do open();
+        // Print the answer
+        // - move cursor inside open-door-field
+        do Output.moveCursor(16, 26);
+        // - Print a "random" phrase from the answers-array into the open-door-field
+        do Output.printString(answers[randNr-1]);
+
+
+        // Update the state variable of the ball-instance
+        let state = rand.getState();
+        // Dispose the Rand-instance
+        do rand.dispose();
+
+        return;
+    }
+
+    method void move(int x, int y) {
+        do Screen.setColor(false);
+        // Erase current black-circle
+        do Screen.drawCircle(left, top, rad);
+        // Increase center-values of circle
+        let left = left + x;
+        let top = top + y;
+        // Draw Circle with new "moved" values
+        do drawBall(left, top, rad);
+        // Draw simplified 8, that moves with the ball
+        // (4 black base circles with 4 white smaller circles inside)
+        // Top-half: black base of moving 8
+        do Screen.setColor(true);
+        do Screen.drawLine(left-4, top-45, left+4, top-45);
+        do Screen.drawCircle(left-3, top-41, 4);
+        do Screen.drawCircle(left+3, top-41, 4);
+        // Bottom-half: black base of moving 8
+        do Screen.drawLine(left-4, top-31, left+4, top-31);
+        do Screen.drawCircle(left-3, top-35, 4);
+        do Screen.drawCircle(left+3, top-35, 4);
+        // Top-half: white inner-bit of the 8
+        do Screen.setColor(false);
+        do Screen.drawRectangle(left-3, top-43, left+3, top-39);
+        do Screen.drawCircle(left-3, top-41, 2);
+        do Screen.drawCircle(left+3, top-41, 2);
+        // Bottom-half: white inner-bit of the 8
+        do Screen.drawRectangle(left-3, top-37, left+3, top-33);
+        do Screen.drawCircle(left-3, top-35, 2);
+        do Screen.drawCircle(left+3, top-35, 2);
+
+        // Wait 60ms to extend the move a bit
+        do Sys.wait(60);
+        return;
+    }
+
+    method void open() {
+        // Animation for opening the door
+        var int count;
+        while (count < 27) {
+            // Draws 30 lines in white, with a delay so it looks like the door
+            // for the answer opens from bottom to top.
+            do Screen.setColor(false);
+            do Screen.drawLine(left-34, top+45-count, left+35, top+45-count);
+            let count = count + 1;
+            do Sys.wait(30);
+        }
+        return;
+    }
+
+    method void dispose() {
+        // Disposes a Ball-instance
+        do Memory.deAlloc(this);
+        return;
+    }
+}

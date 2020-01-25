@@ -1,0 +1,13 @@
+class Main {
+    function void main() {
+        var Game game;
+        // Initialize a Game-instance
+        let game = Game.new();
+        // Start the game
+        do game.run();
+        // If game is done, de-allocate the instance
+        do game.dispose();
+
+        return;
+    }
+}

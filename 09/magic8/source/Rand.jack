@@ -1,0 +1,39 @@
+// This Rand-class is a pseudo-random-number-generator (PRNG)
+// Especially after reloading the game/the program, the answers are predictable.
+// But if the game gets kept running, the answers are not really predictable anymore, as
+// you cannot really make out a pattern.
+
+class Rand {
+    field int state, randNr;
+
+    constructor Rand new(int i) {
+        let state = i;
+        let randNr = i;
+        return this;
+    }
+    // Returns a pseudo-random-number, based on the current state
+    // Algorithm from: https://cdsmith.wordpress.com/2011/10/10/build-your-own-simple-random-numbers/
+    method int rand() {
+        let state = Rand.mod(7 * state, 101);
+        let randNr = Rand.mod((state - 1), 10) + 1;
+        return randNr;
+    }
+
+    // Returns the current state.
+    // (Get's called by the Ball.shake() function, to update/store the state on the Ball instance, throughout the game)
+    method int getState() {
+        return state;
+    }
+
+    // Helperfunction to calculate modulo
+    function int mod(int a, int b) {
+        var int c;
+        let c = a / b;
+        return a - (c * b);
+    }
+
+    method void dispose() {
+        do Memory.deAlloc(this);
+        return;
+    }
+}

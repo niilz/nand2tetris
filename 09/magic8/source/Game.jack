@@ -1,0 +1,86 @@
+class Game {
+    // Drives the Game
+    field Ball ball;
+    field bool isPlaying;
+    field int round;
+
+    constructor Game new() {
+        // Create ball and draw it on the screen.
+        let ball = Ball.new();
+        // Set game-state to true.
+        let isPlaying = true;
+        // Draw Header (MAGIC_8_Ball)
+        do Letters.drawHeader();
+        // Return Game-instance
+        
+        // Draw instructions
+        do Screen.setColor(true);
+        do Screen.drawRectangle(350, 180, 511, 255);
+        do Screen.setColor(false);
+        do Screen.drawRectangle(352, 182, 509, 253);
+        do Output.moveCursor(17, 45);
+        do Output.printString("Ask a question!");
+        do Output.moveCursor(19, 45);
+        do Output.printString("Then press 'ENTER'");
+        do Output.moveCursor(20, 45);
+        do Output.printString("to shake the Ball.");
+        do Output.moveCursor(22, 45);
+        do Output.printString("Press 'q' to quit.");
+        return this;
+    }
+
+    method void run() {
+        var int key;
+        // Game loop (runs, while "isPlaying == true")
+        while (isPlaying) {
+            // If "q"-key is pressed -> stopp the game
+            let key = Keyboard.keyPressed();
+            if (key = 81) {
+                let isPlaying = false;
+            }
+            // If Enter is pressed, shake the ball
+            if (key = 128) {
+                if (round = 5) {
+                    let round = 0;
+                }
+                do ball.shake(round);
+                let round = round + 1;
+            }
+        }
+
+        do drawThankYou();
+
+        return;
+    }
+
+    method void drawThankYou() {
+        var int count1, count2;
+        // Draw a white rectangle that erases the ball
+        while (count1 < 100) {
+            do Screen.drawRectangle(232-count1, 150-count1, 233+count1, 150+count1);
+            let count1 = count1 + 1;
+            do Sys.wait(3);
+        }
+        // Draw a white rectangle that erases the instructions
+        while (count2 < 177) {
+            do Screen.drawRectangle(335, 179, 335+count2, 255);
+            let count2 = count2 + 1;
+            do Sys.wait(1);
+        }
+
+        // Write Thank You (after game was quit by the user)
+        do Output.moveCursor(11, 20);
+        do Output.printString("Thank you for shaking");
+        do Output.moveCursor(13, 20);
+        do Output.printString("the JACK Magic_8_Ball");
+        do Output.moveCursor(16, 25);
+        do Output.printString("by @_niilz_");
+        return;
+    }
+
+    method void dispose() {
+        do ball.dispose();
+        do Memory.deAlloc(this);
+        return;
+    }
+}
