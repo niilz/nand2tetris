@@ -1,3 +1,11 @@
+// COMPILATION-INSTRUCTIONS (for Coursera, so python script can call it):
+// - Create a ".cargo" folder within your project-directory
+// - Create a "config.txt"
+// - Write into config.txt:
+//       [target.x86_64-unknown-linux-musl]
+//       linker = "x86_64-linux-musl-gcc"
+// - build project with "cargo build --target x86_64-unknown-linux-musl"
+
 use std::fs::{ File, read_to_string };
 use std::env::args;
 use std::io::prelude::*;
