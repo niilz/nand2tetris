@@ -1,0 +1,9 @@
+[package]
+name = "syntax_analyzer"
+version = "0.1.0"
+authors = ["nilSinger <niilz@outlook.de>"]
+edition = "2018"
+
+[dependencies]
+regex = "1"
+lazy_static = "1.4.0"
