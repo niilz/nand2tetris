@@ -37,11 +37,11 @@ pub fn get_tokens_in_xml(tokens: &str) -> String {
 #[derive(PartialEq)]
 #[derive(Debug)]
 pub struct Token {
-  token_type: TokenType,
-  value: String,
+  pub token_type: TokenType,
+  pub value: String,
 }
 impl Token {
-  fn to_xml(&self) -> String {
+  pub fn to_xml(&self) -> String {
     let value = match self.value.as_ref() {
       ">" => "&gt;",
       "<" => "&lt;",
@@ -55,7 +55,7 @@ impl Token {
 
 #[derive(Debug)]
 #[derive(PartialEq)]
-enum TokenType {
+pub enum TokenType {
   Keyword,
   Symbol,
   Identifier,
