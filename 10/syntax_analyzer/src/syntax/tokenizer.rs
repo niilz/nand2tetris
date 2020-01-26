@@ -21,7 +21,6 @@ lazy_static! {
   // End of Block comment ( */ ) is not considered. So block-comments in between
   // code will not work, because everything after /** is ignored:
   static ref BLOCK_COMMENT_IDENTIFIER: Regex = Regex::new(r"/\*\*.*").unwrap();
-  static ref BLOCK_COMMENT_BODY: Regex = Regex::new(r"\*.*").unwrap();
 }
 
 // Only public method, which is used in the main
@@ -94,9 +93,10 @@ fn clean_line(line: &str) -> String {
   println!("no coms: {}", line_without_line_comments);
   let line_without_block_comments = BLOCK_COMMENT_IDENTIFIER.replace(&line_without_line_comments, "");
   println!("no block: {}", line_without_block_comments);
-  let line_no_leading_asterix = BLOCK_COMMENT_BODY.replace(&line_without_block_comments, "");
-  println!("no aster: {}", line_no_leading_asterix);
-  line_no_leading_asterix.trim().to_string()
+  if line_without_block_comments.starts_with(" *") {
+    return String::from("");
+  }
+  line_without_block_comments.trim().to_string()
 }
 
 // Workhorse of the Tokenizer-module.
