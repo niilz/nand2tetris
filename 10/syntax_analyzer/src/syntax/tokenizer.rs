@@ -23,7 +23,7 @@ lazy_static! {
   static ref BLOCK_COMMENT_IDENTIFIER: Regex = Regex::new(r"/\*\*.*").unwrap();
 }
 
-// Only public method, which is used in the main
+// Public method, which is used in the main
 // program to translate given Jack code into an XML-representation
 pub fn get_tokens_in_xml(tokens: &str) -> String {
   let tokens_as_xml = tokenize(tokens)
@@ -75,7 +75,7 @@ impl fmt::Display for TokenType {
 }
 
 // Turns a given string (expects valid jack code) into a Vec of Tokens
-fn tokenize(token_stream: &str) -> Vec<Token> {
+pub fn tokenize(token_stream: &str) -> Vec<Token> {
   let mut tokens = Vec::new();
   for line in token_stream.split("\n") {
     let cleaned_line = clean_line(line);
