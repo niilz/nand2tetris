@@ -88,11 +88,8 @@ fn tokenize(token_stream: &str) -> Vec<Token> {
 
 // cleanes a line from comments
 fn clean_line(line: &str) -> String {
-  println!("before: {}", line);
   let line_without_line_comments = LINE_COMMENT_IDENTIFIER.replace(line, "");
-  println!("no coms: {}", line_without_line_comments);
   let line_without_block_comments = BLOCK_COMMENT_IDENTIFIER.replace(&line_without_line_comments, "");
-  println!("no block: {}", line_without_block_comments);
   if line_without_block_comments.starts_with(" *") {
     return String::from("");
   }
