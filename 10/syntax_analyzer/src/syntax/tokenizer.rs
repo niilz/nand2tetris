@@ -1,17 +1,14 @@
 extern crate regex;
 
+use std::fmt;
 use regex::Regex;
 // static values to categorize and validate tokens
-// static VALID_SYMBOLS: &'static [char] = &[
-//   '{', '}', '(', ')', '[', ']', '.', ',', ';', '*',
-//   '+', '-', '/', '&', '|', '<', '>', '=', '~'
-//   ];
-static BREAK_CHARACTERS: &'static [char] = &[' ', '\n'];
-static VALID_SYMBOLS: &'static [&str] = &[
-  "{", "}", "(", ")", "[", "]", ".", ",", ";", "*",
-  "+", "-", "/", "&", "|", "<", ">", "=", "~"
+static VALID_SYMBOLS: &'static [char] = &[
+  '{', '}', '(', ')', '[', ']', '.', ',', ';', '*',
+  '+', '-', '/', '&', '|', '<', '>', '=', '~'
   ];
-  static VALID_KEYWORDS: &'static [&str] = &[
+static BREAK_CHARACTERS: &'static [char] = &[' ', '\n'];
+static VALID_KEYWORDS: &'static [&str] = &[
     "class", "constructor", "function", "method", "field", "static", "var",
     "int", "char", "boolean", "void", "true", "false", "null", "this", "let",
     "do", "if", "else", "while", "return"
@@ -20,30 +17,90 @@ static UPPER_INTEGER_BOUND: u32 = 32767;
 lazy_static! {
   static ref INVALID_CHARACTERS: Regex = Regex::new("[\"\n]+").unwrap();
   static ref VALID_IDENTIFIER_PATTERN: Regex = Regex::new("^[a-zA-Z_][a-zA-Z0-9_]*").unwrap();
+  static ref LINE_COMMENT_IDENTIFIER: Regex = Regex::new(r"//.*").unwrap();
+  static ref BLOCK_COMMENT_IDENTIFIER: Regex = Regex::new(r"/\*\*.+\*/").unwrap();
+}
+
+// Only public method, which is used in the main
+// program to translate given Jack code into an XML-representation
+pub fn get_tokens_in_xml(tokens: &str) -> String {
+  let tokens_as_xml = tokenize(tokens)
+                        .iter()
+                        .map(|token| token.to_xml())
+                        .collect::<Vec<String>>().join("\n");
+  format!("<tokens>\n{}\n</tokens>", tokens_as_xml)
+}
+
+// Token Struct
+#[derive(PartialEq)]
+#[derive(Debug)]
+pub struct Token {
+  token_type: TokenType,
+  value: String,
+}
+impl Token {
+  fn to_xml(&self) -> String {
+    format!("<{}> {} </{}>", self.token_type, self.value, self.token_type)
+  }
 }
 
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub enum Token {
-  Keyword(String),
-  Symbol(String),
-  Identifier(String),
-  StringConstant(String),
-  IntegerConstant(String),
-} 
+enum TokenType {
+  Keyword,
+  Symbol,
+  Identifier,
+  StringConstant,
+  IntegerConstant,
+}
+impl fmt::Display for TokenType {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match *self {
+      TokenType::Keyword => write!(f, "keyword"),
+      TokenType::Symbol => write!(f, "symbol"),
+      TokenType::Identifier => write!(f, "identifier"),
+      TokenType::StringConstant => write!(f, "stringConstant"),
+      TokenType::IntegerConstant => write!(f, "integerConstant"),
+    }
+  }
+}
 
-pub fn tokenize(token_buffer: &str) -> Vec<Token> {
-  // Result-vec of tokens
+// Turns a given string (expects valid jack code) into a Vec of Tokens
+fn tokenize(token_stream: &str) -> Vec<Token> {
+  let mut tokens = Vec::new();
+  for line in token_stream.split("\n") {
+    let cleaned_line = clean_line(line);
+    if !cleaned_line.is_empty() {
+      tokens.append(&mut tokenize_line(&cleaned_line));
+    };
+  }
+  tokens
+}
+
+// cleanes a line from comments
+fn clean_line(line: &str) -> String {
+  let line_without_line_comments = LINE_COMMENT_IDENTIFIER.replace(line, "");
+  let line_without_block_comments = BLOCK_COMMENT_IDENTIFIER.replace(&line_without_line_comments, "");
+  line_without_block_comments.trim().to_string()
+}
+
+// Workhorse of the Tokenizer-module.
+// Cotegorizes character(s) in a line into Tokens
+// with their associated type and value
+fn tokenize_line(token_line: &str) -> Vec<Token> {
   let mut tokens = Vec::new();
   let mut is_string_sequence = false;
   let mut token_string = String::new();
 
-  for (idx, character) in token_buffer.chars().enumerate() {
+  for (idx, character) in token_line.chars().enumerate() {
     // start/end of string-sequence
     if character == '"' {
       // if sequence ends:
       if is_string_sequence {
-        tokens.push(Token::StringConstant(token_string));
+        tokens.push(Token {
+          token_type: TokenType::StringConstant,
+          value: token_string,
+        });
         token_string = String::new();
         is_string_sequence = !is_string_sequence;
         continue;
@@ -56,20 +113,20 @@ pub fn tokenize(token_buffer: &str) -> Vec<Token> {
     if !is_string_sequence {
       // If it's a symbol add it to the result tokens.
       // Before push token in token_string, if there is one.
-      if is_symbol(&character.to_string()) {
+      if is_symbol(character) {
         if !token_string.is_empty() {
           tokens.push(resolve_token(&token_string));
           token_string = String::new();
         }
-        tokens.push(Token::Symbol(character.to_string()));
+        tokens.push(Token { token_type: TokenType::Symbol, value: character.to_string() });
         // If current char isnt marking a break (new-line, blank, end-of-buffer)
         // add it the token_string
-      } else if !char_at_idx_is_break(idx, &token_buffer) {
+      } else if !char_at_idx_is_break(idx, &token_line) {
         token_string.push(character);
       }
       // If next char is marking a break (new-line, blank, end-of-buffer)
       // add token to result Vec
-      if char_at_idx_is_break(idx+1, &token_buffer) && !token_string.is_empty() {
+      if char_at_idx_is_break(idx+1, &token_line) && !token_string.is_empty() {
         tokens.push(resolve_token(&token_string));
         token_string = String::new();
       }
@@ -80,6 +137,7 @@ pub fn tokenize(token_buffer: &str) -> Vec<Token> {
   }
   tokens
 }
+
 
 // Check if next char is a bound between Tokens
 fn char_at_idx_is_break(idx: usize, char_str: &str) -> bool {
@@ -93,19 +151,28 @@ fn char_at_idx_is_break(idx: usize, char_str: &str) -> bool {
 // Token-Resolver
 fn resolve_token(maybe_token: &str) -> Token {
   if is_keyword(maybe_token) {
-    return Token::Keyword(maybe_token.to_string());
+    return Token {
+      token_type: TokenType::Keyword,
+      value: maybe_token.to_string(),
+    };
   }
   if is_valid_identifier(maybe_token) {
-    return Token::Identifier(maybe_token.to_string());
+    return Token {
+      token_type: TokenType::Identifier,
+      value: maybe_token.to_string(),
+    };
   }
   if is_integer_constant(maybe_token) {
-    return Token::IntegerConstant(maybe_token.to_string());
+    return Token {
+      token_type: TokenType::IntegerConstant,
+      value: maybe_token.to_string(),
+    };
   }
   panic!("no valid token has been passed: {}<-Invalid", maybe_token);
 }
 
 // Matcher functions
-fn is_symbol(maybe_symbol: &str) -> bool {
+fn is_symbol(maybe_symbol: char) -> bool {
   VALID_SYMBOLS.contains(&maybe_symbol)
 }
 
@@ -120,10 +187,6 @@ fn is_integer_constant(maybe_integer_constant: &str) -> bool {
   }
 }
 
-fn is_string_constant(maybe_string_constant: &str) -> bool {
-  !INVALID_CHARACTERS.is_match(maybe_string_constant)
-}
-
 fn is_valid_identifier(maybe_identifier: &str) -> bool {
   let optional_match = VALID_IDENTIFIER_PATTERN.find(maybe_identifier);
   match optional_match {
@@ -133,52 +196,81 @@ fn is_valid_identifier(maybe_identifier: &str) -> bool {
 }
 
 
-
+// ### Integration - Tests ###
+#[test]
+fn turns_string_into_token_xml() {
+    assert_eq!(
+      get_tokens_in_xml("let foo = x * y;"),
+      "<tokens>\n<keyword> let </keyword>\n<identifier> foo </identifier>\n<symbol> = </symbol>\n<identifier> x </identifier>\n<symbol> * </symbol>\n<identifier> y </identifier>\n<symbol> ; </symbol>\n</tokens>"
+    );
+}
 
 // ### Unit - TESTS ###
 //
-// Token-parser-Tests
+#[test]
+fn multilines_with_comments_can_be_tokenized() {
+  let mock_tokens = vec![
+    Token { token_type: TokenType::Keyword, value: String::from("let") },
+    Token { token_type: TokenType::Identifier, value: String::from("x") },
+    Token { token_type: TokenType::Symbol, value: String::from("=") },
+    Token { token_type: TokenType::Identifier, value: String::from("y") },
+    Token { token_type: TokenType::Symbol, value: String::from("+") },
+    Token { token_type: TokenType::IntegerConstant, value: String::from("2") },
+    Token { token_type: TokenType::Symbol, value: String::from(";") },
+    Token { token_type: TokenType::Keyword, value: String::from("let") },
+    Token { token_type: TokenType::Identifier, value: String::from("s") },
+    Token { token_type: TokenType::Symbol, value: String::from("=") },
+    Token { token_type: TokenType::StringConstant, value: String::from("Hello World") },
+    Token { token_type: TokenType::Symbol, value: String::from(";") },
+    ];
+  let statements = r#"// Comments and should be ignored, so shoul empty lines (line 2)
+
+  /** block comments should be ignored */
+  let x = y + 2;
+  let s = "Hello World"; // nasty in line comments should be ignored..
+  "#;
+  assert_eq!(tokenize(statements), mock_tokens);
+}
+
+// Tokens-in-line-parser-Tests
+#[test]
+fn division_is_token_not_comment() {
+    let code = "let j = j / (-2);";
+    let mock_tokens = vec! [
+      Token { token_type: TokenType::Keyword, value: String::from("let") },
+      Token { token_type: TokenType::Identifier, value: String::from("j") },
+      Token { token_type: TokenType::Symbol, value: String::from("=") },
+      Token { token_type: TokenType::Identifier, value: String::from("j") },
+      Token { token_type: TokenType::Symbol, value: String::from("/") },
+      Token { token_type: TokenType::Symbol, value: String::from("(") },
+      Token { token_type: TokenType::Symbol, value: String::from("-") },
+      Token { token_type: TokenType::IntegerConstant, value: String::from("2") },
+      Token { token_type: TokenType::Symbol, value: String::from(")") },
+      Token { token_type: TokenType::Symbol, value: String::from(";") },
+    ];
+    assert_eq!(tokenize_line(code), mock_tokens);
+}
 #[test]
 fn simple_tokens_are_categorized() {
-    let mock_tokens = vec![
-      Token::Identifier(String::from("x")),
-      Token::Symbol(String::from("+")),
-      Token::IntegerConstant(String::from("2"))
-    ];
-    assert_eq!(tokenize("x + 2"), mock_tokens);
+  let mock_tokens = vec![
+    Token { token_type: TokenType::Identifier, value: String::from("x") },
+    Token { token_type: TokenType::Symbol, value: String::from("+") },
+    Token { token_type: TokenType::IntegerConstant, value: String::from("2") },
+  ];
+  assert_eq!(tokenize_line("x + 2"), mock_tokens);
 }
+
 #[test]
 fn all_statement_tokens_are_categorized() {
     let mock_tokens = vec![
-      Token::Keyword(String::from("let")),
-      Token::Identifier(String::from("x")),
-      Token::Symbol(String::from("=")),
-      Token::Identifier(String::from("y")),
-      Token::Symbol(String::from("+")),
-      Token::IntegerConstant(String::from("2")),
+      Token { token_type: TokenType::Keyword, value: String::from("let") },
+      Token { token_type: TokenType::Identifier, value: String::from("x") },
+      Token { token_type: TokenType::Symbol, value: String::from("=") },
+      Token { token_type: TokenType::Identifier, value: String::from("y") },
+      Token { token_type: TokenType::Symbol, value: String::from("+") },
+      Token { token_type: TokenType::IntegerConstant, value: String::from("2") },
     ];
-    assert_eq!(tokenize("let x = y + 2"), mock_tokens);
-}
-#[test]
-fn several_statements_can_be_tokenized() {
-    let mock_tokens = vec![
-      Token::Keyword(String::from("let")),
-      Token::Identifier(String::from("x")),
-      Token::Symbol(String::from("=")),
-      Token::Identifier(String::from("y")),
-      Token::Symbol(String::from("+")),
-      Token::IntegerConstant(String::from("2")),
-      Token::Symbol(String::from(";")),
-      Token::Keyword(String::from("let")),
-      Token::Identifier(String::from("s")),
-      Token::Symbol(String::from("=")),
-      Token::StringConstant(String::from("Hello World")),
-      Token::Symbol(String::from(";")),
-    ];
-    let statements = r#"let x = y + 2;
-                        let s = "Hello World";
-                    "#;
-    assert_eq!(tokenize(statements), mock_tokens);
+    assert_eq!(tokenize_line("let x = y + 2"), mock_tokens);
 }
 
 // Break-character-Tests
@@ -209,11 +301,11 @@ fn a_non_keyword_is_not_recognized() {
 // symbols recognition
 #[test]
 fn square_bracket_is_valid_symbol() {
-  assert_eq!(is_symbol("{"), true);
+  assert_eq!(is_symbol('{'), true);
 }
 #[test]
 fn whitespace_is_no_symbol() {
-  assert_eq!(is_symbol(" "), false);
+  assert_eq!(is_symbol(' '), false);
 }
 
 // integerConstant regognition
@@ -236,20 +328,6 @@ fn last_number_of_range_limit_is_integer_constant() {
 #[test]
 fn number_above_range_limit_is_no_integer_constant() {
     assert_eq!(is_integer_constant("32768"), false);
-}
-
-// StringConstant regognition
-#[test]
-fn string_is_valid_string_constant() {
-    assert_eq!(is_string_constant("Hello"), true);
-}
-#[test]
-fn string_with_quotes_is_not_valid_string_constant() {
-    assert_eq!(is_string_constant("He\"llo"), false);
-}
-#[test]
-fn string_with_newline_is_not_valid_string_constant() {
-    assert_eq!(is_string_constant("Hello\nWorld"), false);
 }
 
 // identifier regognition
