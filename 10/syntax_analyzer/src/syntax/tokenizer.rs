@@ -1,6 +1,6 @@
 extern crate regex;
 
-use std::fmt;
+use super::token::{ Token, TokenType };
 use regex::Regex;
 // static values to categorize and validate tokens
 static VALID_SYMBOLS: &'static [char] = &[
@@ -33,46 +33,7 @@ pub fn get_tokens_in_xml(tokens: &str) -> String {
   format!("<tokens>\n{}\n</tokens>", tokens_as_xml)
 }
 
-// Token Struct
-#[derive(PartialEq)]
-#[derive(Debug)]
-pub struct Token {
-  pub token_type: TokenType,
-  pub value: String,
-}
-impl Token {
-  pub fn to_xml(&self) -> String {
-    let value = match self.value.as_ref() {
-      ">" => "&gt;",
-      "<" => "&lt;",
-      "\"" => "&quot;",
-      "&" => "&amp;",
-      _ => &self.value,
-    };
-    format!("<{}> {} </{}>", self.token_type, value, self.token_type)
-  }
-}
 
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub enum TokenType {
-  Keyword,
-  Symbol,
-  Identifier,
-  StringConstant,
-  IntegerConstant,
-}
-impl fmt::Display for TokenType {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match *self {
-      TokenType::Keyword => write!(f, "keyword"),
-      TokenType::Symbol => write!(f, "symbol"),
-      TokenType::Identifier => write!(f, "identifier"),
-      TokenType::StringConstant => write!(f, "stringConstant"),
-      TokenType::IntegerConstant => write!(f, "integerConstant"),
-    }
-  }
-}
 
 // Turns a given string (expects valid jack code) into a Vec of Tokens
 pub fn tokenize(token_stream: &str) -> Vec<Token> {

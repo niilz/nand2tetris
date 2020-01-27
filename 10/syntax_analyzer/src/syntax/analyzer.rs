@@ -1,7 +1,8 @@
-use super::tokenizer::{ Token, TokenType, tokenize };
+use super::token::{ Token, TokenType };
+use super::tokenizer::{ tokenize };
 
 pub fn analyze_tokens(tokens: Vec<Token>) -> String {
-    let mut token_stream = tokens.iter();
+    let mut token_stream = tokens.iter().peekable();
 
     let mut class_tree = String::new();
 
@@ -29,25 +30,54 @@ pub fn analyze_tokens(tokens: Vec<Token>) -> String {
     String::from("not yet implemented")
 }
 
-fn build_body<'a>(token_tail: &mut Iterator<Item=&'a Token>) -> String {
-    token_tail.next();
-    token_tail.next();
-    token_tail.next();
-    token_tail.next();
-    token_tail.next();
-    String::from("test")
+fn build_body<'a>(token_tail: &mut Iterator<Item=&Token>) -> String {
+    let mut body_xml = String::new();
+
+    let mut token_tail_peekable = token_tail.peekable();
+    let next_token = token_tail_peekable.peek();
+    if is_class_var_start(next_token) {
+        let class_vars = compile_class_vars(&mut token_tail);
+        body_xml.push_str(&class_vars);
+    }
+    body_xml 
 }
 
 // Compilation Helpers
+fn compile_class_vars(token_tail: &mut Iterator<Item=&Token>) -> String {
+    String::from("clas_var_test")
+}
+
 fn compile_if() -> String {
     let body: Vec<Token> = Vec::new();
-
+    
     format!("<ifStatement>\n{:?}\n</ifStatement>", body)
 }
 
+// Controle-Flow-Helpers
+fn is_class_var_start(maybe_token: Option<&&Token>) -> bool {
+    let maybe_class_var = &maybe_token.unwrap().value;
+    maybe_class_var == "static" || maybe_class_var == "field"
+}
+
+
 
 // TESTS
+//
+// allover-integration-tests
+#[test]
+#[should_panic]
+fn files_without_class_keyword_panic() {
+    let mock_token = Token {token_type: TokenType::Keyword, value: String::from("NOCLASS") };
+    analyze_tokens(vec![mock_token]);
+}
 
+// body-builder-tests
+#[test]
+fn body_is_correct() {
+    unimplemented!();
+}
+
+// Iterator-behavios-test
 #[test]
 fn iterator_gets_advanced_by_body() {
     let mock_code = "class Main { let x = y; }";
@@ -55,12 +85,6 @@ fn iterator_gets_advanced_by_body() {
     assert_eq!(analyze_tokens(mock_tokens), "");
 }
 
-#[test]
-#[should_panic]
-fn files_without_class_keyword_panic() {
-    let mock_token = Token {token_type: TokenType::Keyword, value: String::from("NOCLASS") };
-    analyze_tokens(vec![mock_token]);
-}
 
 #[test]
 fn if_statement_gets_compiled() {
