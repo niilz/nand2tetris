@@ -2,28 +2,29 @@ use super::token::{ Token, TokenType, TokenStream };
 use super::tokenizer::{ tokenize };
 
 static VALID_SUBROUTINE_KEYWORDS: &[&str] = &["constructor", "function", "method"];
+static VALID_STATEMENT_KEYWORDS: &[&str] = &["let", "if", "else", "while", "do", "return"];
 
 pub fn analyze_tokens(tokens: Vec<Token>) -> String {
     let mut token_stream = tokens.iter().peekable();
-
+    
     
     let class_keyword = token_stream.next().unwrap();
     if class_keyword.value != "class" {
         panic!("class files need to start with class declerationr");
     }
-
+    
     let mut class_tree = String::from("<class>");
     class_tree.push_str(&class_keyword.to_xml());
-
+    
     let class_name = token_stream.next().unwrap();
     if class_name.token_type != TokenType::Identifier {
         panic!("classes need a valid Class-Identifier");
     }
     class_tree.push_str(&class_name.to_xml());
-
+    
     let class_open_curly = token_stream.next().unwrap();
     class_tree.push_str(&class_open_curly.to_xml());
-
+    
     // parse the body
     let body = build_class_body(&mut token_stream);
     class_tree.push_str(&body);
@@ -31,8 +32,14 @@ pub fn analyze_tokens(tokens: Vec<Token>) -> String {
     // after body has finished, close class with closing curly brace
     let closing_curly_brace = token_stream.next().unwrap();
     class_tree.push_str(&closing_curly_brace.to_xml());
-
+    
     class_tree + "</class>"
+}
+
+// Check if valid class, right in the beginning
+fn is_class_var_start(maybe_token: Option<&&Token>) -> bool {
+    let maybe_class_var = &maybe_token.unwrap().value;
+    maybe_class_var == "static" || maybe_class_var == "field"
 }
 
 fn build_class_body(mut token_tail: &mut TokenStream) -> String {
@@ -44,10 +51,13 @@ fn build_class_body(mut token_tail: &mut TokenStream) -> String {
         body_xml.push_str(&class_vars);
     }
 
+    // (Note: maybe looping)
     if token_tail.peek().unwrap().value != "}" {
         let subroutines = compile_subroutine(&mut token_tail, "");
         body_xml.push_str(&subroutines);
     }
+
+    // TODO: more subroutines?
 
     body_xml
 }
@@ -81,6 +91,7 @@ fn compile_subroutine(mut token_tail: &mut TokenStream, subroutine_xml: &str) ->
     result_subroutine_xml.push_str(&subroutine_opening_curly.to_xml());
     // Add code in subroutine-body
     result_subroutine_xml.push_str(&compile_subroutine_body(&mut token_tail));
+
     // End subroutine
     let subroutine_closing_curly = token_tail.next().unwrap();
     result_subroutine_xml.push_str(&subroutine_closing_curly.to_xml());
@@ -119,6 +130,14 @@ fn compile_subroutine_body(mut token_tail: &mut TokenStream) -> String {
         result_sub_body_xml.push_str(&compile_var_dec(&mut token_tail));
     }
     // TODO: compile_statements (let, if, else, while, do, return)
+    // start Statements
+    result_sub_body_xml.push_str("<statements>");
+    
+    // single statement (NOTE: maybe loop)
+    result_sub_body_xml.push_str(&compile_statement(&mut token_tail));
+
+    // end Statements
+    result_sub_body_xml.push_str("</statements>");
     result_sub_body_xml
 }
 // Compile VAR-DECLERATION (part of subroutine-body)
@@ -134,23 +153,45 @@ fn compile_var_dec(token_tail: &mut TokenStream) -> String {
     }
 }
 
-// Compile IF
-fn compile_if() -> String {
-    let body: Vec<Token> = Vec::new();
+// Compile STATEMENTS
+fn compile_statement(mut token_tail: &mut TokenStream) -> String {
+    let statement_token = token_tail.next().unwrap();
+    let mut result_statement_xml = format!("<{}Statement>", statement_token.value);
     
-    format!("<ifStatement>\n{:?}\n</ifStatement>", body)
+    if ["if", "while"].contains(&statement_token.value.as_str()) {
+        result_statement_xml.push_str(&compile_condition(&mut token_tail));
+    }
+
+    result_statement_xml + &format!("</{}Statement>", statement_token.value)
 }
 
 
-// Controle-Flow-Helpers
-fn is_class_var_start(maybe_token: Option<&&Token>) -> bool {
-    let maybe_class_var = &maybe_token.unwrap().value;
-    maybe_class_var == "static" || maybe_class_var == "field"
+// Compile CONDITION
+fn compile_condition(mut token_tail: &mut TokenStream) -> String {
+    let mut result_condition_xml = get_paranthese(&mut token_tail);
+    // start Expression
+    result_condition_xml.push_str("<expression>");
+    // Expression terms
+    result_condition_xml.push_str(&compile_expression(&mut token_tail));
+    // end Expression
+    result_condition_xml.push_str("</expression>");
+    result_condition_xml + &get_paranthese(&mut token_tail)
+}
+
+// Compile EXPRESSION
+fn compile_expression(token_tail: &mut TokenStream) -> String {
+    let result_expression = String::from("<term>");
+    // TODO: multiple terms (maybe: fn compile_term)
+    let term = token_tail.next().unwrap().to_xml();
+    result_expression + &term + "</term>"
 }
 
 
 
-// TESTS
+
+// #######################
+// #######  TESTS  #######
+// #######################
 //
 // allover-integration-TESTS
 static dummy_code: &'static str = "\
@@ -159,15 +200,19 @@ static dummy_code: &'static str = "\
        function char myfunc(int age, boolean isCool) {\
            var char letter;\
            var int max, min;\
+           if (true) {\
+          }
        }\
     }";
+
+// ### CLASS - TESTS
 #[test]
 #[should_panic]
 fn files_without_class_keyword_panic() {
     let mock_token = Token {token_type: TokenType::Keyword, value: String::from("NOCLASS") };
     analyze_tokens(vec![mock_token]);
 }
-// BIG - ALL - TEST
+// All-in-one - TEST
 #[test]
 fn vec_of_tokens_gets_compiled() {
     let mock_tokens = tokenize(dummy_code);
@@ -213,6 +258,21 @@ fn vec_of_tokens_gets_compiled() {
                             <identifier> min </identifier>\
                             <symbol> ; </symbol>\
                         </varDec>\
+                        <statements>\
+                            <ifStatement>\
+                                <keyword> if </keyword>\
+                                <symbol> ( </symbol>\
+                                    <expression>\
+                                        <term>\
+                                            <keyword> true </keyword>\
+                                        </term>\
+                                    </expression>\
+                                <symbol> ) </symbol>\
+                                <symbol> { </symbol>\
+                                <TODO:  MORE  STATEMENTS>
+                                <symbol> } </symbol>\
+                            </ifStatement>\
+                        </statements>\
                         <symbol> } </symbol>\
                     </subroutineBody>\
                 </subroutineDec>\
@@ -305,7 +365,7 @@ fn field_and_static_vars_compile() {
     assert_eq!(compile_class_vars(&mut dummy_field_tokens.iter().peekable(), "<classVarDec>"), dummy_result);
 }
 
-// Subroutine-TESTS
+// ### Subroutine-TESTS ###
 #[test]
 fn subroutine_compiled() {
     let dummy_subroutine = "\
@@ -424,10 +484,32 @@ fn parameterlist_compiles() {
     assert_eq!(compile_paramlist(&mut dummy_params.iter().peekable()), dummy_params_xml);
 }
 
+// ### Statement TESTS ###
+
 // If Statement-TESTS
 #[test]
-#[ignore]
 fn if_statement_gets_compiled() {
-    let if_xml = "TEST";
-    assert_eq!(compile_if(), if_xml);
+    let dummy_condition = "(true)";
+    let condition_tokens = tokenize(dummy_condition);
+    let condition_xml = "\
+        <symbol> ( </symbol>\
+            <expression>\
+                <term>\
+                    <keyword> true </keyword>\
+                </term>\
+            </expression>\
+        <symbol> ) </symbol>";
+    assert_eq!(compile_condition(&mut condition_tokens.iter().peekable()), condition_xml);
+}
+
+// ### Expressions TESTS ###
+#[test]
+fn expressionless_compiles() {
+    let dummy_exp = "x";
+    let dummy_exp_tokens = tokenize(dummy_exp);
+    let dummy_exp_xml = "\
+        <term>\
+            <identifier> x </identifier>\
+        </term>";
+    assert_eq!(compile_expression(&mut dummy_exp_tokens.iter().peekable()), dummy_exp_xml);
 }
