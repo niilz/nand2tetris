@@ -1,4 +1,5 @@
 use std::fmt;
+use std::iter::Peekable;
 
 // Token Struct
 #[derive(PartialEq)]
@@ -39,6 +40,22 @@ impl fmt::Display for TokenType {
       TokenType::IntegerConstant => write!(f, "integerConstant"),
     }
   }
+}
+
+// Wrapper to make the peekable-iterator less verbose
+// type MyIter<'a> = std::slice::Iter<'a, Token>;
+// type TokenStream<'a> = Peekable<MyIter<'a>>;
+pub type TokenStream<'a> = Peekable<std::slice::Iter<'a, Token>>;
+
+// TESTS
+#[test]
+fn token_stream_can_be_taken_by_function() {
+    let token_vec = vec![Token { token_type: TokenType::Symbol, value: String::from("+") }];
+    fn takes_token_stream<'a>(token_stream: &mut TokenStream<'a>) -> String {
+        token_stream.peek().unwrap().value.to_string()
+    }
+    assert_eq!(
+        takes_token_stream(&mut token_vec.iter().peekable()), String::from("+"));
 }
 
 #[test]

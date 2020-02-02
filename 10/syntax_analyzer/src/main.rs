@@ -17,7 +17,7 @@ fn main() -> std::io::Result<()> {
   let input_file = "../Square/SquareGame.jack";
   let jack_code = fs::read_to_string(input_file)?;
   // Write File
-  let mut output_file = File::create("SquareTEST.xml")?;
+
   // let jack_code_as_xml_tokens = get_tokens_in_xml(&jack_code);
 
   let tokens = tokenize(&jack_code);
