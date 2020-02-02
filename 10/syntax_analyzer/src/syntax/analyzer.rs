@@ -134,7 +134,7 @@ fn compile_subroutine_body(mut token_tail: &mut TokenStream) -> String {
     result_sub_body_xml.push_str("<statements>");
     
     // single statement (NOTE: maybe loop)
-    result_sub_body_xml.push_str(&compile_statement(&mut token_tail));
+    result_sub_body_xml.push_str(&compile_statement(&mut token_tail, ""));
 
     // end Statements
     result_sub_body_xml.push_str("</statements>");
@@ -153,21 +153,32 @@ fn compile_var_dec(token_tail: &mut TokenStream) -> String {
     }
 }
 
+// ### Statements TESTS ###
+
 // Compile STATEMENTS
-fn compile_statement(mut token_tail: &mut TokenStream) -> String {
+fn compile_statement(mut token_tail: &mut TokenStream, statements_xml: &str) -> String {
     let statement_token = token_tail.next().unwrap();
-    let mut result_statement_xml = format!("<{}Statement>", statement_token.value);
+    // concat previous statements
+    let mut result_statement_xml = format!("{}<{}Statement>", statements_xml, statement_token.value);
     
+    match statement_token.value.as_str() {
+        // "let" => result_statement_xml.push_str(&compile_let(&mut token_tail)),
+        "if" | "while" => result_statement_xml.push_str(&compile_conditional_statement(&mut token_tail)),
+        // "else" => result_statement_xml.push_str(compile_else(&mut token_tail)),
+        // "do" => result_statement_xml.push_str(compile_do(&mut token_tail)),
+        // "return" => result_statement_xml.push_str(compile_return(&mut token_tail)),
+        s => panic!("unexpected statement of: {:?}", s),
+    }
     if ["if", "while"].contains(&statement_token.value.as_str()) {
-        result_statement_xml.push_str(&compile_condition(&mut token_tail));
+        ;
     }
 
     result_statement_xml + &format!("</{}Statement>", statement_token.value)
 }
 
 
-// Compile CONDITION
-fn compile_condition(mut token_tail: &mut TokenStream) -> String {
+// Compile CONDITION statement (if, while)
+fn compile_conditional_statement(mut token_tail: &mut TokenStream) -> String {
     let mut result_condition_xml = get_paranthese(&mut token_tail);
     // start Expression
     result_condition_xml.push_str("<expression>");
@@ -175,7 +186,10 @@ fn compile_condition(mut token_tail: &mut TokenStream) -> String {
     result_condition_xml.push_str(&compile_expression(&mut token_tail));
     // end Expression
     result_condition_xml.push_str("</expression>");
-    result_condition_xml + &get_paranthese(&mut token_tail)
+    result_condition_xml.push_str(&get_paranthese(&mut token_tail));
+    
+    // start statement-body
+    result_condition_xml + &compile_statement_body(&mut token_tail)
 }
 
 // Compile EXPRESSION
@@ -184,6 +198,19 @@ fn compile_expression(token_tail: &mut TokenStream) -> String {
     // TODO: multiple terms (maybe: fn compile_term)
     let term = token_tail.next().unwrap().to_xml();
     result_expression + &term + "</term>"
+}
+
+// Compile Statement body
+fn compile_statement_body(mut token_tail: &mut TokenStream) -> String {
+    // get opening curly first
+    let mut result_statement_body_xml = get_paranthese(&mut token_tail);
+    // If body is not empty, get more statements
+    if token_tail.peek().unwrap().value != "}" {
+        result_statement_body_xml.push_str(&compile_statement(&mut token_tail, ""));
+    }
+    // get closing curly to end statement-body
+    result_statement_body_xml + &get_paranthese(&mut token_tail)
+
 }
 
 
@@ -488,8 +515,43 @@ fn parameterlist_compiles() {
 
 // If Statement-TESTS
 #[test]
-fn if_statement_gets_compiled() {
-    let dummy_condition = "(true)";
+fn if_while_statements_compile() {
+    let dummy_if_while = "\
+        if (true) {\
+            while (false) {\
+            }\
+        }";
+    let dummy_if_while_tokens = tokenize(dummy_if_while);
+    let dummy_if_while_xml = "\
+        <ifStatement>\
+            <symbol> ( </symbol>\
+                <expression>\
+                    <term>\
+                        <keyword> true </keyword>\
+                    </term>\
+                </expression>\
+            <symbol> ) </symbol>\
+            <symbol> { </symbol>\
+                <whileStatement>\
+                    <symbol> ( </symbol>\
+                        <expression>\
+                            <term>\
+                                <keyword> false </keyword>\
+                            </term>\
+                        </expression>\
+                    <symbol> ) </symbol>\
+                    <symbol> { </symbol>\
+                    <symbol> } </symbol>\
+                </whileStatement>\
+            <symbol> } </symbol>\
+        </ifStatement>";
+    assert_eq!(compile_statement(&mut dummy_if_while_tokens.iter().peekable(), ""), dummy_if_while_xml);
+}
+            
+// Conditionals compile
+#[test]
+fn conditionals_compile() {
+    let dummy_condition = "(true) {}";
     let condition_tokens = tokenize(dummy_condition);
     let condition_xml = "\
         <symbol> ( </symbol>\
@@ -498,8 +560,10 @@ fn if_statement_gets_compiled() {
                     <keyword> true </keyword>\
                 </term>\
             </expression>\
-        <symbol> ) </symbol>";
-    assert_eq!(compile_condition(&mut condition_tokens.iter().peekable()), condition_xml);
+        <symbol> ) </symbol>\
+        <symbol> { </symbol>\
+        <symbol> } </symbol>";
+    assert_eq!(compile_conditional_statement(&mut condition_tokens.iter().peekable()), condition_xml);
 }
 
 // ### Expressions TESTS ###
@@ -512,4 +576,19 @@ fn expressionless_compiles() {
             <identifier> x </identifier>\
         </term>";
     assert_eq!(compile_expression(&mut dummy_exp_tokens.iter().peekable()), dummy_exp_xml);
+}
+// TODO: propper expressions
+
+// Statement body Tests (if, while, else)
+// TODO: fill_body
+#[test]
+fn empty_statement_body_compiles() {
+    let dummy_statement_body = "{\
+        }";
+    let dummy_statement_body_tokens = tokenize(dummy_statement_body);
+    let dummy_statement_body_xml = "\
+            <symbol> { </symbol>\
+            <symbol> } </symbol>\
+        ";
+    assert_eq!(compile_statement_body(&mut dummy_statement_body_tokens.iter().peekable()), dummy_statement_body_xml);
 }
