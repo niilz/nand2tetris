@@ -47,6 +47,22 @@ impl fmt::Display for TokenType {
 // type TokenStream<'a> = Peekable<MyIter<'a>>;
 pub type TokenStream<'a> = Peekable<std::slice::Iter<'a, Token>>;
 
+// TODO (if time, implement PeekableTakeWhile)
+// (like crate https://docs.rs/peeking_take_while/0.1.2/peeking_take_while/)
+// trait PeekableTakeWhile {
+//   fn peek_take_while<P>(&mut self, predicat: P);
+// }
+
+// impl<'a> PeekableTakeWhile for TokenStream<'a> {
+//     // peeking_take_while_helper
+//   fn peek_take_while<P>(&mut self, predicat: P) {
+//     let result_tokens = Vec::new();
+//     loop {
+//         let next_token = token_tail.peek().unwrap();
+//     }
+//   }
+// }
+
 // TESTS
 #[test]
 fn token_stream_can_be_taken_by_function() {
