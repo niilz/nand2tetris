@@ -1,0 +1,107 @@
+<class>
+    <keyword> class </keyword>
+    <identifier> Great </identifier>
+    <symbol> { </symbol>
+    <classVarDec>
+        <keyword> field </keyword>
+        <keyword> int </keyword>
+        <identifier> x </identifier>
+        <symbol> = </symbol>
+        <integerConstant> 5 </integerConstant>
+        <symbol> ; </symbol>
+    </classVarDec>
+    <subroutineDec>
+        <keyword> function </keyword>
+        <keyword> char </keyword>
+        <identifier> myfunc </identifier>
+        <symbol> ( </symbol>
+        <parameterList>
+            <keyword> int </keyword>
+            <identifier> age </identifier>
+            <symbol> , </symbol>
+            <keyword> boolean </keyword>
+            <identifier> isCool </identifier>
+        </parameterList>
+        <symbol> ) </symbol>
+        <subroutineBody>
+            <symbol> { </symbol>
+            <varDec>
+                <keyword> var </keyword>
+                <keyword> char </keyword>
+                <identifier> letter </identifier>
+                <symbol> ; </symbol>
+            </varDec>
+            <varDec>
+                <keyword> var </keyword>
+                <keyword> int </keyword>
+                <identifier> max </identifier>
+                <symbol> , </symbol>
+                <identifier> min </identifier>
+                <symbol> ; </symbol>
+            </varDec>
+            <statements>
+                <ifStatement>
+                    <keyword> if </keyword>
+                    <symbol> ( </symbol>
+                    <expression>
+                        <term>
+                            <keyword> true </keyword>
+                        </term>
+                    </expression>
+                    <symbol> ) </symbol>
+                    <symbol> { </symbol>
+                    <symbol> } </symbol>
+                </ifStatement>
+            </statements>
+            <symbol> } </symbol>
+        </subroutineBody>
+    </subroutineDec>
+    <subroutineDec>
+        <keyword> function </keyword>
+        <keyword> boolean </keyword>
+        <identifier> secondFunc </identifier>
+        <symbol> ( </symbol>
+        <parameterList>
+            <keyword> char </keyword>
+            <identifier> a </identifier>
+            <symbol> , </symbol>
+            <keyword> int </keyword>
+            <integerConstant> 42 </integerConstant>
+        </parameterList>
+        <symbol> ) </symbol>
+        <subroutineBody>
+            <symbol> { </symbol>
+            <varDec>
+                <keyword> var </keyword>
+                <keyword> int </keyword>
+                <identifier> size </identifier>
+                <symbol> ; </symbol>
+            </varDec>
+            <statements>
+                <ifStatement>
+                    <keyword> if </keyword>
+                    <symbol> ( </symbol>
+                    <expression>
+                        <term>
+                            <keyword> false </keyword>
+                        </term>
+                    </expression>
+                    <symbol> ) </symbol>
+                    <symbol> { </symbol>
+                    <returnStatement>
+                        <keyword> return </keyword>
+                        <expression>
+                            <term>
+                                <stringConstant> Hello </stringConstant>
+                            </term>
+                        </expression>
+                        <symbol> ; </symbol>
+                    </returnStatement>
+                    <symbol> } </symbol>
+                </ifStatement>
+            </statements>
+            <symbol> } </symbol>
+        </subroutineBody>
+    </subroutineDec>
+    <symbol> } </symbol>
+</class>
