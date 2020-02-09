@@ -88,16 +88,7 @@
                     </expression>
                     <symbol> ) </symbol>
                     <symbol> { </symbol>
-                    <letStatement>
-                        <keyword> let </keyword>
-                        <identifier> x </identifier>
-                        <symbol> = </symbol>
-                        <expression>
-                            <term>
-                                <integerConstant> 1 </integerConstant>
-                            </term>
-                        </expression>
-                        <symbol> ; </symbol>
+                    <statements>
                         <returnStatement>
                             <keyword> return </keyword>
                             <expression>
@@ -107,7 +98,8 @@
                             </expression>
                             <symbol> ; </symbol>
                         </returnStatement>
-                        <symbol> } </symbol>
+                    </statements>
+                    <symbol> } </symbol>
                 </ifStatement>
             </statements>
             <symbol> } </symbol>
