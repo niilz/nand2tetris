@@ -128,19 +128,21 @@ fn compile_subroutine_body(mut token_tail: &mut TokenStream) -> String {
         result_sub_body_xml.push_str(&compile_var_dec(&mut token_tail));
     }
 
-    if token_tail.peek() == None {
-        panic!("token_tail has no next value inside subroutine body. At least closing } is expected or statements")
-    }
-    // If closing curly appears, subroutine has not statements and can return early
+    // If closing curly appears, subroutine has no statements and can return early
     if token_tail.peek().unwrap().value == "}" {
         return result_sub_body_xml;
     }
+
     // start Statements
     result_sub_body_xml.push_str("<statements>");
-    
     // single statement (NOTE: maybe loop)
-    result_sub_body_xml.push_str(&compile_statement(&mut token_tail, ""));
-
+    loop {
+        let next_token = token_tail.peek().unwrap().value.as_str();
+        if next_token == "}" || next_token == ";" {
+            break;
+        }
+        result_sub_body_xml.push_str(&compile_statement(&mut token_tail, ""));
+    }
     // end Statements
     result_sub_body_xml.push_str("</statements>");
 
@@ -164,6 +166,7 @@ fn compile_var_dec(token_tail: &mut TokenStream) -> String {
 // Compile STATEMENTS
 fn compile_statement(mut token_tail: &mut TokenStream, statements_xml: &str) -> String {
     let statement_token_value = token_tail.peek().unwrap().value.to_string();
+
     // concat previous statements
     let mut result_statement_xml = format!("{}<{}Statement>", statements_xml, statement_token_value);
     
@@ -181,11 +184,6 @@ fn compile_statement(mut token_tail: &mut TokenStream, statements_xml: &str) -> 
         panic!("token_tail has no next value in compile_statement. But should either see have } of sourrounding subroutine-body or next statement or else")
     }
 
-    // in case else is following the previous statement add it
-    if token_tail.peek().unwrap().value == "else" {
-        result_statement_xml.push_str(&compile_else(&mut token_tail));
-    }
-    
     if token_tail.peek().unwrap().value != "}" {
         return compile_statement(&mut token_tail, &result_statement_xml);
     }
@@ -227,6 +225,11 @@ fn compile_conditional_statement(mut token_tail: &mut TokenStream) -> String {
     result_condition_xml.push_str(&next_as_xml(&mut token_tail));
     // start statement-body
     result_condition_xml.push_str(&compile_statement_body(&mut token_tail));
+
+    // in case else is following the previous statement add it
+    if token_tail.peek().unwrap().value == "else" {
+        result_condition_xml.push_str(&compile_else(&mut token_tail));
+    }
     
     // Return ruslting condition as xml
     result_condition_xml
@@ -368,6 +371,7 @@ static dummy_code: &'static str = r#"
        function boolean secondFunc(char a, int 42) {
            var int size;
            if (false) {
+            let x = 1;
             return "Hello";
           }
        }
@@ -475,15 +479,28 @@ fn vec_of_tokens_gets_compiled() {
                                     </expression>\
                                 <symbol> ) </symbol>\
                                 <symbol> { </symbol>\
-                                    <returnStatement>\
-                                        <keyword> return </keyword>\
+                                    <statements>\
+                                        <letStatement>\
+                                            <keyword> let </keyword>\
+                                            <identifier> x </identifier>\
+                                            <symbol> = </symbol>\
                                             <expression>\
                                                 <term>\
-                                                    <stringConstant> Hello </stringConstant>\
+                                                    <integerConstant> 1 </integerConstant>\
                                                 </term>\
                                             </expression>\
-                                        <symbol> ; </symbol>\
-                                    </returnStatement>\
+                                            <symbol> ; </symbol>\
+                                        </letStatement>\
+                                        <returnStatement>\
+                                            <keyword> return </keyword>\
+                                                <expression>\
+                                                    <term>\
+                                                        <stringConstant> Hello </stringConstant>\
+                                                    </term>\
+                                                </expression>\
+                                            <symbol> ; </symbol>\
+                                        </returnStatement>\
+                                    </statements>\
                                 <symbol> } </symbol>\
                             </ifStatement>\
                         </statements>\
@@ -859,7 +876,8 @@ fn if_else_while_statements_compile() {
 // Conditionals Test (sub-piece of if and while)
 #[test]
 fn conditionals_compile() {
-    let dummy_condition = "if (true) {}";
+    let dummy_condition = "if (true) {}\
+        }"; // sourrounding statement or subroutine end-curly
     let condition_tokens = tokenize(dummy_condition);
     let condition_xml = "\
         <keyword> if </keyword>\

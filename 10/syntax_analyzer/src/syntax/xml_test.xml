@@ -88,16 +88,26 @@
                     </expression>
                     <symbol> ) </symbol>
                     <symbol> { </symbol>
-                    <returnStatement>
-                        <keyword> return </keyword>
+                    <letStatement>
+                        <keyword> let </keyword>
+                        <identifier> x </identifier>
+                        <symbol> = </symbol>
                         <expression>
                             <term>
-                                <stringConstant> Hello </stringConstant>
+                                <integerConstant> 1 </integerConstant>
                             </term>
                         </expression>
                         <symbol> ; </symbol>
-                    </returnStatement>
-                    <symbol> } </symbol>
+                        <returnStatement>
+                            <keyword> return </keyword>
+                            <expression>
+                                <term>
+                                    <stringConstant> Hello </stringConstant>
+                                </term>
+                            </expression>
+                            <symbol> ; </symbol>
+                        </returnStatement>
+                        <symbol> } </symbol>
                 </ifStatement>
             </statements>
             <symbol> } </symbol>

@@ -89,9 +89,24 @@
                     <symbol> ) </symbol>
                     <symbol> { </symbol>
                     <statements>
+                        <letStatement>
+                            <keyword> let </keyword>
+                            <identifier> x </identifier>
+                            <symbol> = </symbol>
+                            <expression>
+                                <term>
+                                    <integerConstant> 1 </integerConstant>
+                                </term>
+                            </expression>
+                            <symbol> ; </symbol>
+                        </letStatement>
                         <returnStatement>
                             <keyword> return </keyword>
-                            <stringConstant> Hello </stringConstant>
+                            <expression>
+                                <term>
+                                    <stringConstant> Hello </stringConstant>
+                                </term>
+                            </expression>
                             <symbol> ; </symbol>
                         </returnStatement>
                     </statements>
