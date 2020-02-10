@@ -139,7 +139,7 @@ fn compile_subroutine_body(mut token_tail: &mut TokenStream) -> String {
         if next_token == "}" || next_token == ";" {
             break;
         }
-        result_sub_body_xml.push_str(&compile_statement(&mut token_tail, ""));
+        result_sub_body_xml.push_str(&compile_statement(&mut token_tail));
     }
 
     result_sub_body_xml
@@ -160,33 +160,34 @@ fn compile_var_dec(token_tail: &mut TokenStream) -> String {
 // ### Statements TESTS ###
 
 // Compile STATEMENTS
-fn compile_statement(mut token_tail: &mut TokenStream, statements_xml: &str) -> String {
-    let statement_token_value = token_tail.peek().unwrap().value.to_string();
-
+fn compile_statement(mut token_tail: &mut TokenStream) -> String {
+    
     // concat previous statements
     let mut result_statement_xml = String::from("<statements>");
     
-    match statement_token_value.as_str() {
-        "let" => result_statement_xml.push_str(&compile_let(&mut token_tail)),
-        "if" | "while" => result_statement_xml.push_str(&compile_conditional_statement(&mut token_tail)),
-        "do" => result_statement_xml.push_str(&compile_do(&mut token_tail)),
-        "return" => result_statement_xml.push_str(&compile_return(&mut token_tail)),
-        s => panic!("unexpected statement-keyword of: {:?}", s),
+    loop {
+        if token_tail.peek() == None {
+            panic!("token_tail has no next value in compile_statement. But should either see have } of sourrounding subroutine-body or next statement or else")
+        }
+        
+        // Check if no more subroutines?
+        if token_tail.peek().unwrap().value == "}" {
+            break;
+        }
+        
+        let statement_token_value = token_tail.peek().unwrap().value.to_string();
+        match statement_token_value.as_str() {
+            "let" => result_statement_xml.push_str(&compile_let(&mut token_tail)),
+            "if" | "while" => result_statement_xml.push_str(&compile_conditional_statement(&mut token_tail)),
+            "do" => result_statement_xml.push_str(&compile_do(&mut token_tail)),
+            "return" => result_statement_xml.push_str(&compile_return(&mut token_tail)),
+            s => panic!("unexpected statement-keyword of: {:?}", s),
+        }
     }
     
-    
-    // Check if end of subroutine?
-    if token_tail.peek() == None {
-        panic!("token_tail has no next value in compile_statement. But should either see have } of sourrounding subroutine-body or next statement or else")
-    }
-
-    if token_tail.peek().unwrap().value != "}" {
-        return compile_statement(&mut token_tail, &result_statement_xml);
-    }
     result_statement_xml.push_str("</statements>");
     
     result_statement_xml
-    
 }
 
 // Compile Statement body
@@ -197,7 +198,7 @@ fn compile_statement_body(mut token_tail: &mut TokenStream) -> String {
         panic!("no next value available in compile_statement_body. Either } of this statement should be there or more statements");
     }
     if token_tail.peek().unwrap().value != "}" {
-        result_statement_body_xml.push_str(&compile_statement(&mut token_tail, ""));
+        result_statement_body_xml.push_str(&compile_statement(&mut token_tail));
     }
     // add closing curly of statement_body then return statement-body
     result_statement_body_xml + &next_as_xml(&mut token_tail)
@@ -213,7 +214,7 @@ fn compile_conditional_statement(mut token_tail: &mut TokenStream) -> String {
     // get open paranthese
     result_condition_xml.push_str(&next_as_xml(&mut token_tail));
     // Add all expressions
-    result_condition_xml.push_str(&compile_expression(&mut token_tail, ""));
+    result_condition_xml.push_str(&compile_expression(&mut token_tail));
     // add close paranthese
     result_condition_xml.push_str(&next_as_xml(&mut token_tail));
 
@@ -246,7 +247,7 @@ fn compile_let(mut token_tail: &mut TokenStream) -> String {
         result_let_xml.push_str(&next_as_xml(&mut token_tail));
 
         // add expression inside square-brackets
-        result_let_xml.push_str(&compile_expression(&mut token_tail, ""));
+        result_let_xml.push_str(&compile_expression(&mut token_tail));
 
         // add closing square-bracket
         result_let_xml.push_str(&next_as_xml(&mut token_tail));
@@ -256,7 +257,7 @@ fn compile_let(mut token_tail: &mut TokenStream) -> String {
     result_let_xml.push_str(&next_as_xml(&mut token_tail));
 
     // Add Expression on right sight of assignment
-    result_let_xml.push_str(&compile_expression(&mut token_tail, ""));
+    result_let_xml.push_str(&compile_expression(&mut token_tail));
 
     // add semicolon and return result 
     result_let_xml + &next_as_xml(&mut token_tail) + "</letStatement>"
@@ -273,7 +274,7 @@ fn compile_do(mut token_tail: &mut TokenStream) -> String {
     result_do_xml.push_str(&next_as_xml(&mut token_tail));
     // add expression-list
     result_do_xml.push_str("<expressionList>");
-    result_do_xml.push_str(&compile_expression(&mut token_tail, ""));
+    result_do_xml.push_str(&compile_expression(&mut token_tail));
     result_do_xml.push_str("</expressionList>");
     // add closing expression-list paranthese and semicolon
     let end_of_do: String = token_tail
@@ -303,7 +304,7 @@ fn compile_return(mut token_tail: &mut TokenStream) -> String {
     // add return-keyword
     result_return_xml.push_str(&next_as_xml(&mut token_tail));
     // add expressions (if present)
-    result_return_xml.push_str(&compile_expression(&mut token_tail, ""));
+    result_return_xml.push_str(&compile_expression(&mut token_tail));
     // add semicolon and return result
     result_return_xml + &next_as_xml(&mut token_tail) + "</returnStatement>"
 }
@@ -323,11 +324,12 @@ fn compile_else(mut token_tail: &mut TokenStream) -> String {
 
 
 // Compile EXPRESSION
-fn compile_expression(mut token_tail: &mut TokenStream, result_xml: &str) -> String {
+fn compile_expression(mut token_tail: &mut TokenStream) -> String {
     if token_tail.peek() == None {
         panic!("compile_expression received a TokenStream with no next value. ")
     }
-    let mut result_expression_xml = result_xml.to_string();
+    let mut result_expression_xml = String::new();
+
     // If no term, just return empty String
     let next_token = token_tail.peek().unwrap().value.to_string();
     if [")", ";", "]"].contains(&next_token.as_ref())  {
@@ -335,23 +337,33 @@ fn compile_expression(mut token_tail: &mut TokenStream, result_xml: &str) -> Str
     }
     // start Expression
     result_expression_xml.push_str("<expression>");
+    // add term
+    result_expression_xml.push_str(&compile_term(&mut token_tail, ""));
+    // end Expression and return
+    result_expression_xml + "</expression>"
+}
 
-    // start adding Expression term (TODO: several terms, maybe extract to function)
-    let mut result_term_xml = String::from("<term>");
+// Compile term
+fn compile_term(mut token_tail: &mut TokenStream, result_xml: &str) -> String {
+    // If no more terms, return
+    let next_token = token_tail.peek().unwrap().value.to_string();
+    if [")", ";", "]"].contains(&next_token.as_ref())  {
+        return result_xml.to_string();
+    }
+    // start adding Expression term(s)
+    let mut result_term_xml = format!("{}<term>", result_xml);
     // add term
     result_term_xml.push_str(&next_as_xml(&mut token_tail));
     // end adding Expression term
     result_term_xml.push_str("</term>");
-    // end Expression
-    result_expression_xml.push_str(&result_term_xml);
-    result_expression_xml.push_str("</expression>");
     
     // add op if available
     if OPERATORS.contains(&token_tail.peek().unwrap().value.as_ref()) {
-        result_expression_xml.push_str(&next_as_xml(&mut token_tail));
+        result_term_xml.push_str(&next_as_xml(&mut token_tail));
     }
 
-    compile_expression(&mut token_tail, &result_expression_xml)
+    compile_term(&mut token_tail, &result_term_xml)
+
 }
 
 
@@ -792,9 +804,7 @@ fn let_with_or_compiles() {
                 <term>\
                     <integerConstant> 50 </integerConstant>\
                 </term>\
-            </expression>\
-            <symbol> | </symbol>\
-            <expression>\
+                <symbol> | </symbol>\
                 <term>\
                     <integerConstant> 60 </integerConstant>\
                 </term>\
@@ -871,7 +881,7 @@ fn if_else_while_statements_compile() {
                     <symbol> } </symbol>\
                 </ifStatement>\
             </statements>";
-    assert_eq!(compile_statement(&mut dummy_if_while_tokens.iter().peekable(), ""), dummy_if_while_xml);
+    assert_eq!(compile_statement(&mut dummy_if_while_tokens.iter().peekable()), dummy_if_while_xml);
 }
             
 // Conditionals Test (sub-piece of if and while)
@@ -994,5 +1004,20 @@ fn expressionless_compiles() {
             <identifier> x </identifier>\
         </term>\
         </expression>";
-    assert_eq!(compile_expression(&mut dummy_exp_tokens.iter().peekable(), ""), dummy_exp_xml);
+    assert_eq!(compile_expression(&mut dummy_exp_tokens.iter().peekable()), dummy_exp_xml);
+}
+
+// term - TESTS (part of expression)
+#[test]
+fn term_compiles() {
+    let dummy_term_tokens = tokenize("i / 2;");
+    let dummy_term_xml = "\
+        <term>\
+            <identifier> i </identifier>\
+        </term>\
+        <symbol> / </symbol>\
+        <term>\
+            <integerConstant> 2 </integerConstant>\
+        </term>";
+    assert_eq!(compile_term(&mut dummy_term_tokens.iter().peekable(), ""), dummy_term_xml);
 }
