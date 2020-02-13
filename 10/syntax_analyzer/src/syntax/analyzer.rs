@@ -45,18 +45,19 @@ fn is_class_var_start(maybe_token: Option<&&Token>) -> bool {
 fn build_class_body(mut token_tail: &mut TokenStream) -> String {
     let mut body_xml = String::new();
 
-    let next_token = token_tail.peek();
-    if is_class_var_start(next_token) {
+    loop {
+        let next_token = token_tail.peek();
+        if !is_class_var_start(next_token) {
+            break;
+        }
         let class_vars = compile_class_vars(token_tail, "<classVarDec>");
         body_xml.push_str(&class_vars);
     }
 
-    // (Note: maybe looping)
+    // Add subroutines
     while token_tail.peek().unwrap().value != "}" {
         body_xml.push_str(&compile_subroutine(&mut token_tail, ""));
     }
-
-    // TODO: more subroutines?
 
     body_xml
 }
@@ -335,19 +336,28 @@ fn compile_expression(mut token_tail: &mut TokenStream) -> String {
     if [")", ";", "]"].contains(&next_token.as_ref())  {
         return result_expression_xml;
     }
+
     // start Expression
     result_expression_xml.push_str("<expression>");
     // add term
     result_expression_xml.push_str(&compile_term(&mut token_tail, ""));
     // end Expression and return
-    result_expression_xml + "</expression>"
+    result_expression_xml.push_str("</expression>");
+
+    // add more expressions if there are any
+    if token_tail.peek().unwrap().value == "," {
+        result_expression_xml.push_str(&next_as_xml(&mut token_tail));
+        return result_expression_xml + &compile_expression(&mut token_tail);
+    }
+
+    result_expression_xml
 }
 
 // Compile term
 fn compile_term(mut token_tail: &mut TokenStream, result_xml: &str) -> String {
     // If no more terms, return
     let next_token = token_tail.peek().unwrap().value.to_string();
-    if [")", ";", "]"].contains(&next_token.as_ref())  {
+    if [")", ";", "]", ","].contains(&next_token.as_ref())  {
         return result_xml.to_string();
     }
     // start adding Expression term(s)
@@ -368,8 +378,6 @@ fn compile_term(mut token_tail: &mut TokenStream, result_xml: &str) -> String {
 
 
 
-
-
 // #######################
 // #######  TESTS  #######
 // #######################
@@ -378,6 +386,7 @@ fn compile_term(mut token_tail: &mut TokenStream, result_xml: &str) -> String {
 static dummy_code: &'static str = r#"
     class Great {
        field int x = 5;
+       static char y = 42;
        function char myfunc(int age, boolean isCool) {
            var char letter;
            var int max, min;
@@ -415,6 +424,14 @@ fn vec_of_tokens_gets_compiled() {
                     <identifier> x </identifier>\
                     <symbol> = </symbol>\
                     <integerConstant> 5 </integerConstant>\
+                    <symbol> ; </symbol>\
+                </classVarDec>\
+                <classVarDec>\
+                    <keyword> static </keyword>\
+                    <keyword> char </keyword>\
+                    <identifier> y </identifier>\
+                    <symbol> = </symbol>\
+                    <integerConstant> 42 </integerConstant>\
                     <symbol> ; </symbol>\
                 </classVarDec>\
                 <subroutineDec>\
@@ -586,27 +603,6 @@ fn static_var_compiles() {
             <identifier> num </identifier>\
             <symbol> = </symbol>\
             <integerConstant> 10 </integerConstant>\
-            <symbol> ; </symbol>\
-        </classVarDec>");
-    assert_eq!(compile_class_vars(&mut dummy_field_tokens.iter().peekable(), "<classVarDec>"), dummy_result);
-}
-#[test]
-fn field_and_static_vars_compile() {
-    let dummy_field = r#"static int num = 10, field boolean isValid = true;"#;
-    let dummy_field_tokens = tokenize(dummy_field);
-    let dummy_result = String::from("\
-        <classVarDec>\
-            <keyword> static </keyword>\
-            <keyword> int </keyword>\
-            <identifier> num </identifier>\
-            <symbol> = </symbol>\
-            <integerConstant> 10 </integerConstant>\
-            <symbol> , </symbol>\
-            <keyword> field </keyword>\
-            <keyword> boolean </keyword>\
-            <identifier> isValid </identifier>\
-            <symbol> = </symbol>\
-            <keyword> true </keyword>\
             <symbol> ; </symbol>\
         </classVarDec>");
     assert_eq!(compile_class_vars(&mut dummy_field_tokens.iter().peekable(), "<classVarDec>"), dummy_result);
@@ -813,6 +809,7 @@ fn let_with_or_compiles() {
         </letStatement>";
     assert_eq!(compile_let(&mut dummy_let_tokens.iter().peekable()), dummy_let_xml);
 }
+
 #[test]
 fn let_with_array_idx_compiles() {
     let dummy_let_tokens = tokenize("let myVar[i] = 50;");
@@ -932,6 +929,39 @@ fn do_subroutine_compiles() {
                     <expression>\
                         <term>\
                             <identifier> x </identifier>\
+                        </term>\
+                    </expression>\
+                </expressionList>\
+                <symbol> ) </symbol>\
+                <symbol> ; </symbol>\
+            </doStatement>";
+        assert_eq!(compile_do(&mut dummy_do_tokens.iter().peekable()), dummy_do_xml);
+    }
+#[test]
+fn do_multiple_expressions_compiles() {
+    let dummy_do = "do rockit(x, y, z);";
+    let dummy_do_tokens = tokenize(dummy_do);
+    let dummy_do_xml = "\
+        <doStatement>\
+            <keyword> do </keyword>\
+            <identifier> rockit </identifier>\
+            <symbol> ( </symbol>\
+                <expressionList>\
+                    <expression>\
+                        <term>\
+                            <identifier> x </identifier>\
+                        </term>\
+                    </expression>\
+                    <symbol> , </symbol>\
+                    <expression>\
+                        <term>\
+                            <identifier> y </identifier>\
+                        </term>\
+                    </expression>\
+                    <symbol> , </symbol>\
+                    <expression>\
+                        <term>\
+                            <identifier> z </identifier>\
                         </term>\
                     </expression>\
                 </expressionList>\
