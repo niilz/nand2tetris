@@ -3,7 +3,8 @@ use super::tokenizer::{ tokenize };
 
 static VALID_SUBROUTINE_KEYWORDS: &[&str] = &["constructor", "function", "method"];
 static VALID_STATEMENT_KEYWORDS: &[&str] = &["let", "if", "else", "while", "do", "return"];
-static OPERATORS: &[&str] = &["+", "-", "*", "/", "&", "|", "<", ">", "=", "-", "~"];
+static OPERATORS: &[&str] = &["+", "-", "*", "/", "&", "|", "<", ">", "=", "~"];
+static UNARY_OP: &[&str] = &["-", "~"];
 
 pub fn analyze_tokens(tokens: Vec<Token>) -> String {
     let mut token_stream = tokens.iter().peekable();
@@ -326,6 +327,7 @@ fn compile_else(mut token_tail: &mut TokenStream) -> String {
 
 // Compile EXPRESSION
 fn compile_expression(mut token_tail: &mut TokenStream) -> String {
+
     if token_tail.peek() == None {
         panic!("compile_expression received a TokenStream with no next value. ")
     }
@@ -343,32 +345,74 @@ fn compile_expression(mut token_tail: &mut TokenStream) -> String {
     result_expression_xml.push_str(&compile_term(&mut token_tail, ""));
     // end Expression and return
     result_expression_xml.push_str("</expression>");
-
+    
     // add more expressions if there are any
     if token_tail.peek().unwrap().value == "," {
         result_expression_xml.push_str(&next_as_xml(&mut token_tail));
         return result_expression_xml + &compile_expression(&mut token_tail);
     }
-
+    
     result_expression_xml
 }
 
 // Compile term
 fn compile_term(mut token_tail: &mut TokenStream, result_xml: &str) -> String {
-    // If no more terms, return
-    let next_token = token_tail.peek().unwrap().value.to_string();
-    if [")", ";", "]", ","].contains(&next_token.as_ref())  {
-        return result_xml.to_string();
+    let mut result_term_xml = result_xml.to_string();
+
+    // add nested unary-op-exprssion if present
+    if UNARY_OP.contains(&token_tail.peek().unwrap().value.as_ref()) {
+        // start nested expression
+        result_term_xml.push_str("<term>");
+        // add unary-operator
+        result_term_xml.push_str(&next_as_xml(&mut token_tail));
+        // add the nested term
+        result_term_xml.push_str(&compile_term(&mut token_tail, ""));
+        // finish nested expression
+        result_term_xml.push_str("</term>");
     }
+    // add array indexing or exressions if present
+    let next_token = token_tail.peek().unwrap().value.to_string();
+    if ["(", "["].contains(&next_token.as_ref()) {
+        result_term_xml.push_str(if next_token == "(" { "<term>" } else { "" });
+        // add opening bracket/parantese
+        result_term_xml.push_str(&next_as_xml(&mut token_tail));
+        // add expression
+        result_term_xml.push_str(&compile_expression(&mut token_tail));
+        // add closing bracket/parantese
+        result_term_xml.push_str(&next_as_xml(&mut token_tail));
+        result_term_xml.push_str(if next_token == "(" { "</term>" } else { "" });
+    }
+    // if term is finished return it
+    if [")", ";", "]", ","].contains(&token_tail.peek().unwrap().value.as_ref())  {
+        return result_term_xml.to_string();
+    }
+    
     // start adding Expression term(s)
-    let mut result_term_xml = format!("{}<term>", result_xml);
-    // add term
+    result_term_xml.push_str("<term>");
+    
     result_term_xml.push_str(&next_as_xml(&mut token_tail));
+    // add subunits of term if present
+    let next_token = token_tail.peek().unwrap().value.to_string();
+    if &next_token == "." {
+        result_term_xml.push_str(&consume_to_xml_while(&mut token_tail, "("));
+        // add opening paranthese
+        result_term_xml.push_str(&next_as_xml(&mut token_tail));
+        result_term_xml.push_str("<expressionList>");
+        result_term_xml.push_str(&compile_expression(&mut token_tail));
+        result_term_xml.push_str("</expressionList>");
+        // add closing paranthese
+        result_term_xml.push_str(&next_as_xml(&mut token_tail));
+    } else if next_token == "[" {
+    // add indexing part of term if present
+        result_term_xml.push_str(&compile_term(&mut token_tail, ""));
+    }
     // end adding Expression term
     result_term_xml.push_str("</term>");
+
     
     // add op if available
     if OPERATORS.contains(&token_tail.peek().unwrap().value.as_ref()) {
+        // add operator
         result_term_xml.push_str(&next_as_xml(&mut token_tail));
     }
 
@@ -721,7 +765,6 @@ fn statement_body_compiles() {
             do rockit();\
         }\
     }";
-    println!("Input: {}", dummy_statement_body);
     let dummy_statement_body_tokens = tokenize(dummy_statement_body);
     let dummy_statement_body_xml = "\
         <statements>\
@@ -832,6 +875,111 @@ fn let_with_array_idx_compiles() {
             </expression>\
             <symbol> ; </symbol>\
         </letStatement>";
+    assert_eq!(compile_let(&mut dummy_let_tokens.iter().peekable()), dummy_let_xml);
+}
+#[test]
+fn let_subroutine_call_compiles() {
+    let dummy_let_tokens = tokenize("let subR = myFunc.call();");
+    let dummy_let_xml = "\
+        <letStatement>\
+            <keyword> let </keyword>\
+            <identifier> subR </identifier>\
+            <symbol> = </symbol>\
+            <expression>\
+                <term>\
+                    <identifier> myFunc </identifier>\
+                    <symbol> . </symbol>\
+                    <identifier> call </identifier>\
+                    <symbol> ( </symbol>\
+                    <expressionList>\
+                    </expressionList>\
+                    <symbol> ) </symbol>\
+                </term>\
+            </expression>\
+            <symbol> ; </symbol>\
+        </letStatement>";
+    assert_eq!(compile_let(&mut dummy_let_tokens.iter().peekable()), dummy_let_xml);
+}
+#[test]
+fn let_array_idx_compiles() {
+    let dummy_let_tokens = tokenize("let a[1]= blup;");
+    let dummy_let_xml = "\
+        <letStatement>\
+            <keyword> let </keyword>\
+            <identifier> a </identifier>\
+            <symbol> [ </symbol>\
+              <expression>\
+                <term>\
+                  <integerConstant> 1 </integerConstant>\
+                </term>\
+              </expression>\
+              <symbol> ] </symbol>\
+            <symbol> = </symbol>\
+            <expression>\
+                <term>\
+                    <identifier> blup </identifier>\
+                </term>\
+            </expression>\
+            <symbol> ; </symbol>\
+        </letStatement>";
+    assert_eq!(compile_let(&mut dummy_let_tokens.iter().peekable()), dummy_let_xml);
+}
+#[test]
+fn let_with_parantheses_compiles() {
+    let dummy_let_tokens = tokenize("let a = i * (-3);");
+    let dummy_let_xml = "\
+        <letStatement>\
+            <keyword> let </keyword>\
+            <identifier> a </identifier>\
+            <symbol> = </symbol>\
+            <expression>\
+                <term>\
+                  <identifier> i </identifier>\
+                </term>\
+                <symbol> * </symbol>\
+                <term>\
+                  <symbol> ( </symbol>\
+                  <expression>\
+                    <term>\
+                      <symbol> - </symbol>\
+                      <term>\
+                        <integerConstant> 3 </integerConstant>\
+                      </term>\
+                    </term>\
+                  </expression>\
+                  <symbol> ) </symbol>\
+                </term>\
+              </expression>\
+            <symbol> ; </symbol>\
+        </letStatement>";
+    assert_eq!(compile_let(&mut dummy_let_tokens.iter().peekable()), dummy_let_xml);
+}
+#[test]
+fn let_with_square_term_right_compiles() {
+    let dummy_let_tokens = tokenize("let sum = sum + a[i];");
+    let dummy_let_xml = "\
+    <letStatement>\
+        <keyword> let </keyword>\
+        <identifier> sum </identifier>\
+        <symbol> = </symbol>\
+        <expression>\
+        <term>\
+            <identifier> sum </identifier>\
+        </term>\
+        <symbol> + </symbol>\
+        <term>\
+            <identifier> a </identifier>\
+            <symbol> [ </symbol>\
+            <expression>\
+            <term>\
+                <identifier> i </identifier>\
+            </term>\
+            </expression>\
+            <symbol> ] </symbol>\
+        </term>\
+        </expression>\
+        <symbol> ; </symbol>\
+    </letStatement>";
     assert_eq!(compile_let(&mut dummy_let_tokens.iter().peekable()), dummy_let_xml);
 }
 
