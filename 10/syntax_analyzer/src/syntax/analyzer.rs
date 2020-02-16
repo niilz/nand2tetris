@@ -163,7 +163,6 @@ fn compile_var_dec(token_tail: &mut TokenStream) -> String {
 
 // Compile STATEMENTS
 fn compile_statement(mut token_tail: &mut TokenStream) -> String {
-    
     // concat previous statements
     let mut result_statement_xml = String::from("<statements>");
     
@@ -374,6 +373,7 @@ fn compile_term(mut token_tail: &mut TokenStream, result_xml: &str) -> String {
     let next_token = token_tail.peek().unwrap().value.to_string();
     if ["(", "["].contains(&next_token.as_ref()) {
         result_term_xml.push_str(if next_token == "(" { "<term>" } else { "" });
+        
         // add opening bracket/parantese
         result_term_xml.push_str(&next_as_xml(&mut token_tail));
         // add expression
@@ -381,6 +381,13 @@ fn compile_term(mut token_tail: &mut TokenStream, result_xml: &str) -> String {
         // add closing bracket/parantese
         result_term_xml.push_str(&next_as_xml(&mut token_tail));
         result_term_xml.push_str(if next_token == "(" { "</term>" } else { "" });
+        // add more terms if there are any
+        if OPERATORS.contains(&token_tail.peek().unwrap().value.as_ref()) {
+            // first add the operator
+            result_term_xml.push_str(&next_as_xml(&mut token_tail));
+            // then add the term
+            result_term_xml.push_str(&compile_term(&mut token_tail, ""));
+        }
     }
     // if term is finished return it
     if [")", ";", "]", ","].contains(&token_tail.peek().unwrap().value.as_ref())  {
@@ -403,21 +410,18 @@ fn compile_term(mut token_tail: &mut TokenStream, result_xml: &str) -> String {
         // add closing paranthese
         result_term_xml.push_str(&next_as_xml(&mut token_tail));
     } else if next_token == "[" {
-    // add indexing part of term if present
+        // add indexing part of term if present
         result_term_xml.push_str(&compile_term(&mut token_tail, ""));
     }
     // end adding Expression term
     result_term_xml.push_str("</term>");
 
-    
     // add op if available
     if OPERATORS.contains(&token_tail.peek().unwrap().value.as_ref()) {
         // add operator
         result_term_xml.push_str(&next_as_xml(&mut token_tail));
     }
-
     compile_term(&mut token_tail, &result_term_xml)
-
 }
 
 
@@ -1026,6 +1030,71 @@ fn if_else_while_statements_compile() {
                     <symbol> } </symbol>\
                 </ifStatement>\
             </statements>";
+    assert_eq!(compile_statement(&mut dummy_if_while_tokens.iter().peekable()), dummy_if_while_xml);
+}
+#[test]
+fn if_several_terms_compiles() {
+    let dummy_if_while = "if (((y + size) < 254) & ((x + size) < 510)) {} }"; // Extra curly indicating that next token is end of sourrounding subroutine
+    let dummy_if_while_tokens = tokenize(dummy_if_while);
+    let dummy_if_while_xml = "\
+        <statements>\
+            <ifStatement>\
+            <keyword> if </keyword>\
+            <symbol> ( </symbol>\
+            <expression>\
+                <term>\
+                <symbol> ( </symbol>\
+                <expression>\
+                    <term>\
+                    <symbol> ( </symbol>\
+                    <expression>\
+                        <term>\
+                        <identifier> y </identifier>\
+                        </term>\
+                        <symbol> + </symbol>\
+                        <term>\
+                        <identifier> size </identifier>\
+                        </term>\
+                    </expression>\
+                    <symbol> ) </symbol>\
+                    </term>\
+                    <symbol> &lt; </symbol>\
+                    <term>\
+                    <integerConstant> 254 </integerConstant>\
+                    </term>\
+                </expression>\
+                <symbol> ) </symbol>\
+                </term>\
+                <symbol> &amp; </symbol>\
+                <term>\
+                <symbol> ( </symbol>\
+                <expression>\
+                    <term>\
+                    <symbol> ( </symbol>\
+                    <expression>\
+                        <term>\
+                        <identifier> x </identifier>\
+                        </term>\
+                        <symbol> + </symbol>\
+                        <term>\
+                        <identifier> size </identifier>\
+                        </term>\
+                    </expression>\
+                    <symbol> ) </symbol>\
+                    </term>\
+                    <symbol> &lt; </symbol>\
+                    <term>\
+                    <integerConstant> 510 </integerConstant>\
+                    </term>\
+                </expression>\
+                <symbol> ) </symbol>\
+                </term>\
+            </expression>\
+            <symbol> ) </symbol>\
+            <symbol> { </symbol>\
+            <symbol> } </symbol>\
+            </ifStatement>\
+        </statements>";
     assert_eq!(compile_statement(&mut dummy_if_while_tokens.iter().peekable()), dummy_if_while_xml);
 }
             

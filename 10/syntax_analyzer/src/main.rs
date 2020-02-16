@@ -14,7 +14,7 @@ use std::io::Write;
 fn main() -> std::io::Result<()> {
 
   // Read a File
-  let input_file = "../Square/Square.jack";
+  let input_file = "../ArrayTest/Main.jack";
   let jack_code = fs::read_to_string(input_file)?;
   println!("Jack code from file '{}' has been read.", input_file);
   // Write File
