@@ -1,8 +1,6 @@
 use super::token::{ Token, TokenType, TokenStream };
 use super::tokenizer::{ tokenize };
 
-static VALID_SUBROUTINE_KEYWORDS: &[&str] = &["constructor", "function", "method"];
-static VALID_STATEMENT_KEYWORDS: &[&str] = &["let", "if", "else", "while", "do", "return"];
 static OPERATORS: &[&str] = &["+", "-", "*", "/", "&", "|", "<", ">", "=", "~"];
 static UNARY_OP: &[&str] = &["-", "~"];
 
