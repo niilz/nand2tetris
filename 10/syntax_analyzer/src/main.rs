@@ -21,19 +21,20 @@ fn main() {
   }
 
   fn process_input(path: &Path) {
-    let dir = fs::read_dir(path).expect("Where is the path");
+    let dir = fs::read_dir(path).expect("No Path has been passed");
     for item in dir {
       let item = item.expect("no item in path");
       let item_path = item.path();
       if item_path.is_dir() {
         process_input(&item_path);
       } else if item_path.extension() == Some(OsStr::new("jack")) {
-        parse_jack_file(&item_path);
+        let result_dir = item_path.parent().unwrap();
+        parse_jack_file(&item_path, result_dir);
       }
     }
   }
 
-  fn parse_jack_file(jack_file: &Path) {
+  fn parse_jack_file(jack_file: &Path, result_dir: &Path) {
     // Read a File
     let jack_code = fs::read_to_string(jack_file).expect("could not read file");
     println!("Jack code from file '{:?}' has been read.", jack_file);
@@ -49,7 +50,8 @@ fn main() {
     
     // Write xml to file
     let file_stem = jack_file.file_stem().expect("could not read the file stem of the input file");
-    let mut output_file = PathBuf::from(file_stem);
+    let mut output_file = PathBuf::from(result_dir);
+    output_file.push(file_stem);
     output_file.set_extension("xml");
     let mut output_file =  fs::File::create(output_file).expect("Could not create file");
     output_file.write_all(parsed_and_newline_seperated.as_bytes()).expect("could not write to file");
