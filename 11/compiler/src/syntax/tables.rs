@@ -1,28 +1,26 @@
 use std::collections::HashMap;
-use super::token::{ Token, TokenType };
 
 #[derive(Default)]
 pub struct ClassTable {
-    field_count: u32,
-    statik_count: u32,
-    fields: VarMap,
-    statiks: VarMap,
+    fields: HashMap<String, Var>,
+    statiks: HashMap<String,Var>,
 }
 
 impl ClassTable {
-    pub fn add(&mut self, var: &mut Var) {
+    pub fn add(&mut self, var: Var) {
         match var.kind.as_ref() {
-            "field" => self.fields.update(var),
-            "static" => self.statiks.update(var),
+            "field" => {
+                self.fields.insert(var.name.to_string(), var);
+            },
+            "static" => {
+                self.statiks.insert(var.name.to_string(), var);
+            },
             _ => panic!("ClassVarDecs must be of kind field or static."),
         }
     }
     pub fn get(&self, var_name: &str) -> Var {
-        println!("{:?}", var_name);
-        let field_var = self.fields.vars.get(var_name);
-        let statik_var = self.statiks.vars.get(var_name);
-        println!("{:?}", field_var);
-        println!("{:?}", statik_var);
+        let field_var = self.fields.get(var_name);
+        let statik_var = self.statiks.get(var_name);
         match (field_var, statik_var) {
             (Some(var), _) => var.clone(),
             (_, Some(var)) => var.clone(),
@@ -32,18 +30,34 @@ impl ClassTable {
 }
 
 #[derive(Default)]
-struct VarMap {
-    count: u32,
-    vars: HashMap<String, Var>,
+pub struct SubroutineTable {
+    args: HashMap<String, Var>,
+    locals: HashMap<String, Var>,
 }
-impl VarMap {
-    fn update(&mut self, var: &mut Var) {
-        if self.vars.contains_key(&var.name) {
-            panic!("Var has already been declared!");
+
+impl SubroutineTable {
+    pub fn add(&mut self, var: Var) {
+        match var.kind.as_ref() {
+            "arg" => {
+                self.args.insert(var.name.to_string(), var);
+            },
+            "local" => {
+                self.locals.insert(var.name.to_string(), var);
+            },
+            _ => panic!("ClassVarDecs must be of kind field or static."),
         }
-        self.count += 1;
-        var.idx = self.count;
-        self.vars.insert(var.name.to_string(), var.clone());
+    }
+    pub fn get(&self, var_name: &str) -> Var {
+        let field_var = self.args.get(var_name);
+        let statik_var = self.locals.get(var_name);
+        match (field_var, statik_var) {
+            (Some(var), _) => var.clone(),
+            (_, Some(var)) => var.clone(),
+            _ => panic!("No variable with name '{}' in class", var_name),
+        }
+    }
+    pub fn is_args_empty(&self) -> bool {
+        self.args.is_empty()
     }
 }
 
@@ -57,12 +71,12 @@ pub struct Var {
     idx: u32,
 }
 impl Var {
-    pub fn new(kind: String, typ: String, name: String) -> Self {
+    pub fn new(kind: &str, typ: &str, name: &str, idx: u32) -> Self {
         Var {
-            idx: 0,
-            kind,
-            typ,
-            name,
+            idx,
+            kind: kind.to_string(),
+            typ: typ.to_string(),
+            name: name.to_string(),
         }
     }
     pub fn to_xml(&self) -> String {
@@ -81,18 +95,35 @@ fn class_var_gets_created() {
         name: "num".to_string(),
         idx: 0,
     };
-    let dummy_var_right = Var::new("static".to_string(), "int".to_string(), "num".to_string());
+    let dummy_var_right = Var::new("static", "int", "num", 0);
     assert_eq!(dummy_var_left, dummy_var_right);
 }
 
 #[test]
-fn class_vars_update() {
-    let mut var_map = VarMap {
-        count: 0,
-        vars: HashMap::new(),
-    };
-    let mut dummy_var = Var::new("static".to_string(), "int".to_string(), "num".to_string());
-    var_map.update(&mut dummy_var);
-    assert_eq!(var_map.count, 1);
-    assert_eq!(var_map.vars.get("num").unwrap().idx, 1);
+fn class_vars_get_stored() {
+    let dummy_var = Var::new("static", "int", "num", 3);
+    let mut class_table = ClassTable::default();
+    class_table.add(dummy_var);
+    assert_eq!(class_table.get("num").idx, 3);
+}
+
+#[test]
+fn subroutine_vars_get_stored() {
+    let dummy_var = Var::new("arg", "int", "pups", 1);
+    let mut subroutine_table = SubroutineTable::default();
+    subroutine_table.add(dummy_var);
+    assert_eq!(subroutine_table.get("pups").idx, 1);
+}
+
+#[test]
+fn empty_args_is_empty() {
+    let mut subroutine_table = SubroutineTable::default();
+    assert_eq!(subroutine_table.is_args_empty(), true);
+}
+#[test]
+fn args_with_this_is_not_empty() {
+    let dummy_var = Var::new("arg", "class_name", "this", 0);
+    let mut subroutine_table = SubroutineTable::default();
+    subroutine_table.add(dummy_var);
+    assert_eq!(subroutine_table.is_args_empty(), false);
 }

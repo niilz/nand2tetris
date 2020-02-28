@@ -1,10 +1,11 @@
 use super::token::{ Token, TokenType, TokenStream };
 use super::tokenizer::{ tokenize };
-use super::tables::{ Var, ClassTable };
+use super::tables::{ Var, ClassTable, SubroutineTable };
 use std::collections::HashMap;
 
 static OPERATORS: &[&str] = &["+", "-", "*", "/", "&", "|", "<", ">", "=", "~"];
 static UNARY_OP: &[&str] = &["-", "~"];
+
 
 pub fn analyze_tokens(tokens: Vec<Token>) -> String {
     let mut token_stream = tokens.iter().peekable();
@@ -21,13 +22,14 @@ pub fn analyze_tokens(tokens: Vec<Token>) -> String {
     if class_name.token_type != TokenType::Identifier {
         panic!("classes need a valid Class-Identifier");
     }
+
     class_tree.push_str(&class_name.to_xml());
     
     let class_open_curly = next_as_xml(&mut token_stream);
     class_tree.push_str(&class_open_curly);
     
     // parse the body
-    let body = build_class_body(&mut token_stream);
+    let body = build_class_body(&mut token_stream, &class_name.value);
     class_tree.push_str(&body);
     
     // after body has finished, close class with closing curly brace
@@ -44,22 +46,24 @@ fn is_class_var_start(maybe_token: Option<&&Token>) -> bool {
 }
 
 // Compilse class-body
-fn build_class_body(mut token_tail: &mut TokenStream) -> String {
+fn build_class_body(mut token_tail: &mut TokenStream, class_name: &str) -> String {
     let mut class_table = ClassTable::default();
     let mut body_xml = String::new();
 
+    let mut var_idx = 0;
     loop {
         let next_token = token_tail.peek();
         if !is_class_var_start(next_token) {
             break;
         }
-        let class_vars = compile_class_vars(token_tail, &mut class_table);
+        let class_vars = compile_class_vars(token_tail, &mut class_table, var_idx);
+        var_idx += 1;
         body_xml.push_str(&class_vars);
     }
 
     // Add subroutines
     while token_tail.peek().unwrap().value != "}" {
-        body_xml.push_str(&compile_subroutine(&mut token_tail, ""));
+        body_xml.push_str(&compile_subroutine(&mut token_tail, class_name));
     }
 
     body_xml
@@ -67,7 +71,7 @@ fn build_class_body(mut token_tail: &mut TokenStream) -> String {
 
 // Compilation Helpers
 // calles itself until a semicolon (;) appears in the TokenStream
-fn compile_class_vars(token_tail: &mut TokenStream, class_table: &mut ClassTable) -> String {
+fn compile_class_vars(token_tail: &mut TokenStream, class_table: &mut ClassTable, idx: u32) -> String {
     let mut result_class_var_xml = String::from("<classVarDec>");
 
     let kind = token_tail.peek().unwrap().value.to_string();
@@ -83,13 +87,11 @@ fn compile_class_vars(token_tail: &mut TokenStream, class_table: &mut ClassTable
     result_class_var_xml.push_str(&var_name);
 
     // Construct VAR
-    let mut var = Var::new(kind, typ, name.clone());
+    let var = Var::new(&kind, &typ, &name, idx);
+    // Add var to XML
     result_class_var_xml.push_str(&var.to_xml());
-    // Update Class-Var-Table
-    class_table.add(&mut var);
-    // Add Var-DATA to xml.output
-    let updated_var = class_table.get(&name);
-    result_class_var_xml.push_str(&updated_var.to_xml());
+    // Add Var to Class-Table
+    class_table.add(var);
 
     loop {
         if token_tail.peek().unwrap().value == ";" {
@@ -107,42 +109,71 @@ fn compile_class_vars(token_tail: &mut TokenStream, class_table: &mut ClassTable
 }
 
 // soubroutine-compiler
-fn compile_subroutine(mut token_tail: &mut TokenStream, subroutine_xml: &str) -> String {
+fn compile_subroutine(token_tail: &mut TokenStream, class_name: &str) -> String {
+
+    let mut subroutine_table = SubroutineTable::default();
+    
     let mut result_subroutine_xml = String::from("<subroutineDec>");
     // Add suroutine-identifier, type and subroutine name
     token_tail
-        .take(3)
-        .for_each(|token| result_subroutine_xml.push_str(&token.to_xml()));
+    .take(3)
+    .for_each(|token| result_subroutine_xml.push_str(&token.to_xml()));
     
-    let param_list = compile_paramlist(&mut token_tail);
+    // TODO: only if METHOD add THIS
+    // Create this-arg
+    let this = Var::new("arg", class_name, "this", 0);
+    // Add this to xml
+    result_subroutine_xml.push_str(&this.to_xml());
+    // Add Var to Subrroutine-Table
+    subroutine_table.add(this);
+
+    let param_list = compile_paramlist(token_tail, &mut subroutine_table);
     result_subroutine_xml.push_str(&param_list);
 
     // Start subroutine-body
     result_subroutine_xml.push_str("<subroutineBody>");
-    let subroutine_opening_curly = next_as_xml(&mut token_tail);
+    let subroutine_opening_curly = next_as_xml(token_tail);
     result_subroutine_xml.push_str(&subroutine_opening_curly);
     // Add code in subroutine-body
-    result_subroutine_xml.push_str(&compile_subroutine_body(&mut token_tail));
+    result_subroutine_xml.push_str(&compile_subroutine_body(token_tail));
 
     // End subroutine
-    let subroutine_closing_curly = next_as_xml(&mut token_tail);
+    let subroutine_closing_curly = next_as_xml(token_tail);
     result_subroutine_xml.push_str(&subroutine_closing_curly);
     result_subroutine_xml.push_str("</subroutineBody>");
     result_subroutine_xml + "</subroutineDec>"
 }
 
 // Compile PARAM (part of subroutine)
-fn compile_paramlist(mut param_decleration: &mut TokenStream) -> String {
-    let mut paramlist_xml = next_as_xml(&mut param_decleration);
+fn compile_paramlist(token_tail: &mut TokenStream, subroutine_table: &mut SubroutineTable) -> String {
+    let mut paramlist_xml = next_as_xml(token_tail);
     paramlist_xml.push_str("<parameterList>");
+
+    let mut arg_count = if subroutine_table.is_args_empty() { 0 } else { 1 };
     loop {
-        let token = param_decleration.next().unwrap();
+        let token = token_tail.next().unwrap();
         if token.value  == ")" {
             paramlist_xml.push_str("</parameterList>");
             paramlist_xml.push_str(&token.to_xml());
             return paramlist_xml;
         }
-        paramlist_xml.push_str(&token.to_xml());
+        if ["(", ","].contains(&token.value.as_ref()) {
+            // add opening paranthese or comma
+            paramlist_xml.push_str(&token.to_xml());
+        } else {
+            // add param type and name
+            let typ_token = token;
+            let name_token = token_tail.next().unwrap();
+            paramlist_xml.push_str(&typ_token.to_xml());
+            paramlist_xml.push_str(&name_token.to_xml());
+            // Create arg-var and add it to Subroutine-Table
+            let arg = Var::new("arg", &typ_token.value, &name_token.value, arg_count);
+            subroutine_table.add(arg);
+            arg_count += 1;
+            // Get updated Var and add it to XML
+            let updated_var = subroutine_table.get(&name_token.value);
+            paramlist_xml.push_str(&updated_var.to_xml());
+        }
     }
 }
 // param-helper
@@ -633,7 +664,7 @@ fn class_body_is_correct() {
                 <symbol> ; </symbol>\
             </classVarDec>\
             ";
-    assert_eq!(build_class_body(&mut dummy_tokens.iter().peekable()), result_xml);
+    assert_eq!(build_class_body(&mut dummy_tokens.iter().peekable(), "_class_name"), result_xml);
 }
 
 // Class-var-TESTS
@@ -659,7 +690,7 @@ fn field_var_compiles() {
             <identifier> y </identifier>\
             <symbol> ; </symbol>\
         </classVarDec>");
-    assert_eq!(compile_class_vars(&mut dummy_field_tokens.iter().peekable(), &mut ClassTable::default()), dummy_result);
+    assert_eq!(compile_class_vars(&mut dummy_field_tokens.iter().peekable(), &mut ClassTable::default(), 0), dummy_result);
 }
 #[test]
 fn static_var_compiles() {
@@ -672,7 +703,7 @@ fn static_var_compiles() {
             <identifier> num </identifier>\
             <symbol> ; </symbol>\
         </classVarDec>");
-    assert_eq!(compile_class_vars(&mut dummy_field_tokens.iter().peekable(), &mut ClassTable::default()), dummy_result);
+    assert_eq!(compile_class_vars(&mut dummy_field_tokens.iter().peekable(), &mut ClassTable::default(), 0), dummy_result);
 }
 
 // ### Subroutine-TESTS ###
@@ -705,7 +736,6 @@ fn subroutine_compiled() {
                     <keyword> char </keyword>\
                     <identifier> letter </identifier>\
                     <symbol> ; </symbol>\
-                </varDec>\
                 <varDec>\
                     <keyword> var </keyword>\
                     <keyword> int </keyword>\
@@ -717,7 +747,7 @@ fn subroutine_compiled() {
                 <symbol> } </symbol>\
             </subroutineBody>\
         </subroutineDec>";
-    assert_eq!(compile_subroutine(&mut dummy_subroutine_tokens.iter().peekable(), ""), dummy_subroutine_xml);
+    assert_eq!(compile_subroutine(&mut dummy_subroutine_tokens.iter().peekable(), "_class_name"), dummy_subroutine_xml);
 }
 
 // Subroutine-Body-TESTS
@@ -757,7 +787,7 @@ fn empty_parameterlist_compiles() {
             <parameterList>\
             </parameterList>\
         <symbol> ) </symbol>";
-    assert_eq!(compile_paramlist(&mut dummy_params.iter().peekable()), dummy_params_xml);
+    assert_eq!(compile_paramlist(&mut dummy_params.iter().peekable(), &mut SubroutineTable::default()), dummy_params_xml);
 }
 #[test]
 fn parameterlist_compiles() {
@@ -772,7 +802,7 @@ fn parameterlist_compiles() {
                 <identifier> hasHair </identifier>\
             </parameterList>\
         <symbol> ) </symbol>";
-    assert_eq!(compile_paramlist(&mut dummy_params.iter().peekable()), dummy_params_xml);
+    assert_eq!(compile_paramlist(&mut dummy_params.iter().peekable(), &mut SubroutineTable::default()), dummy_params_xml);
 }
 
 // ### Statement TESTS ###
