@@ -122,7 +122,6 @@ fn compile_subroutine(token_tail: &mut TokenStream, class_name: &str) -> String 
     result_subroutine_xml.push_str(&return_type.to_xml());
     result_subroutine_xml.push_str(&routine_name.to_xml());
     
-    // TODO: only if METHOD add THIS
     if routine_type.value == "method" {
         // Create this-arg
         let this = Var::new("arg", class_name, "this", 0);
@@ -140,7 +139,7 @@ fn compile_subroutine(token_tail: &mut TokenStream, class_name: &str) -> String 
     let subroutine_opening_curly = next_as_xml(token_tail);
     result_subroutine_xml.push_str(&subroutine_opening_curly);
     // Add code in subroutine-body
-    result_subroutine_xml.push_str(&compile_subroutine_body(token_tail));
+    result_subroutine_xml.push_str(&compile_subroutine_body(token_tail, &mut subroutine_table));
 
     // End subroutine
     let subroutine_closing_curly = next_as_xml(token_tail);
@@ -187,7 +186,7 @@ fn next_as_xml(token_tail: &mut TokenStream) -> String {
 }
 
 // Compile SOUBROUTINE-BODY (part of subroutine)
-fn compile_subroutine_body(mut token_tail: &mut TokenStream) -> String {
+fn compile_subroutine_body(mut token_tail: &mut TokenStream, subroutine_table: &mut SubroutineTable) -> String {
     let mut result_sub_body_xml = String::new();
     // add var-decleration if there are any
     loop {
@@ -195,7 +194,7 @@ fn compile_subroutine_body(mut token_tail: &mut TokenStream) -> String {
         if next_token.value != "var" {
             break;
         }
-        result_sub_body_xml.push_str(&compile_var_dec(&mut token_tail));
+        result_sub_body_xml.push_str(&compile_var_dec(&mut token_tail, subroutine_table));
     }
 
     // If closing curly appears, subroutine has no statements and can return early
@@ -215,15 +214,41 @@ fn compile_subroutine_body(mut token_tail: &mut TokenStream) -> String {
     result_sub_body_xml
 }
 // Compile VAR-DECLERATION (part of subroutine-body)
-fn compile_var_dec(token_tail: &mut TokenStream) -> String {
+fn compile_var_dec(token_tail: &mut TokenStream, subroutine_table: &mut SubroutineTable) -> String {
     let mut var_dec_xml = String::from("<varDec>");
+    let var_keyword_token = token_tail.next().unwrap();
+    let var_type_token = token_tail.next().unwrap();
+    let var_name_token = token_tail.next().unwrap();
+    
+    // Construct first Var and add it to Subroutine-Table
+    let mut var_count = 0;
+    let var = Var::new("local", &var_type_token.value, &var_name_token.value, var_count);
+    var_dec_xml.push_str(&var.to_xml());
+    subroutine_table.add(var);
+    var_count += 1;
+
+
+    // add first Var to xml
+    var_dec_xml.push_str(&var_keyword_token.to_xml());
+    var_dec_xml.push_str(&var_type_token.to_xml());
+    var_dec_xml.push_str(&var_name_token.to_xml());
+
     loop {
         let next_token = token_tail.next().unwrap();
         if next_token.value == ";" {
             var_dec_xml.push_str(&next_token.to_xml());
             return var_dec_xml + "</varDec>";
+        } else if next_token.value == "," {
+            // add comma
+            var_dec_xml.push_str(&next_token.to_xml());
+            let next_var_name = token_tail.next().unwrap();
+            var_dec_xml.push_str(&next_var_name.to_xml());
+            // construct var behind comma and add it to Subroutine-Table
+            let var = Var::new("local", &var_type_token.value, &next_var_name.value, var_count);
+            var_dec_xml.push_str(&var.to_xml());
+            subroutine_table.add(var);
+            var_count += 1;
         }
-        var_dec_xml.push_str(&next_token.to_xml());
     }
 }
 
@@ -779,7 +804,7 @@ fn subroutine_body_compiles() {
             <identifier> isOpen </identifier>\
             <symbol> ; </symbol>\
         </varDec>";
-    assert_eq!(compile_subroutine_body(&mut mock_body_tokens.iter().peekable()), mock_body_xml);
+    assert_eq!(compile_subroutine_body(&mut mock_body_tokens.iter().peekable(), &mut SubroutineTable::default()), mock_body_xml);
 }
 
 
