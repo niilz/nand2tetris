@@ -48,16 +48,16 @@ impl SubroutineTable {
         }
     }
     pub fn get(&self, var_name: &str) -> Var {
-        let field_var = self.args.get(var_name);
-        let statik_var = self.locals.get(var_name);
-        match (field_var, statik_var) {
+        let arg_var = self.args.get(var_name);
+        let local_var = self.locals.get(var_name);
+        match (arg_var, local_var) {
             (Some(var), _) => var.clone(),
             (_, Some(var)) => var.clone(),
             _ => panic!("No variable with name '{}' in class", var_name),
         }
     }
-    pub fn is_args_empty(&self) -> bool {
-        self.args.is_empty()
+    pub fn has_this(&self) -> bool {
+        !self.args.is_empty()
     }
 }
 
@@ -117,13 +117,13 @@ fn subroutine_vars_get_stored() {
 
 #[test]
 fn empty_args_is_empty() {
-    let mut subroutine_table = SubroutineTable::default();
-    assert_eq!(subroutine_table.is_args_empty(), true);
+    let subroutine_table = SubroutineTable::default();
+    assert_eq!(subroutine_table.has_this(), false);
 }
 #[test]
 fn args_with_this_is_not_empty() {
     let dummy_var = Var::new("arg", "class_name", "this", 0);
     let mut subroutine_table = SubroutineTable::default();
     subroutine_table.add(dummy_var);
-    assert_eq!(subroutine_table.is_args_empty(), false);
+    assert_eq!(subroutine_table.has_this(), true);
 }

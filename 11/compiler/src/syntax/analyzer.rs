@@ -115,17 +115,22 @@ fn compile_subroutine(token_tail: &mut TokenStream, class_name: &str) -> String 
     
     let mut result_subroutine_xml = String::from("<subroutineDec>");
     // Add suroutine-identifier, type and subroutine name
-    token_tail
-    .take(3)
-    .for_each(|token| result_subroutine_xml.push_str(&token.to_xml()));
+    let routine_type = token_tail.next().unwrap();
+    let return_type = token_tail.next().unwrap();
+    let routine_name = token_tail.next().unwrap();
+    result_subroutine_xml.push_str(&routine_type.to_xml());
+    result_subroutine_xml.push_str(&return_type.to_xml());
+    result_subroutine_xml.push_str(&routine_name.to_xml());
     
     // TODO: only if METHOD add THIS
-    // Create this-arg
-    let this = Var::new("arg", class_name, "this", 0);
-    // Add this to xml
-    result_subroutine_xml.push_str(&this.to_xml());
-    // Add Var to Subrroutine-Table
-    subroutine_table.add(this);
+    if routine_type.value == "method" {
+        // Create this-arg
+        let this = Var::new("arg", class_name, "this", 0);
+        // Add this to xml
+        result_subroutine_xml.push_str(&this.to_xml());
+        // Add Var to Subrroutine-Table
+        subroutine_table.add(this);
+    }
 
     let param_list = compile_paramlist(token_tail, &mut subroutine_table);
     result_subroutine_xml.push_str(&param_list);
@@ -149,7 +154,7 @@ fn compile_paramlist(token_tail: &mut TokenStream, subroutine_table: &mut Subrou
     let mut paramlist_xml = next_as_xml(token_tail);
     paramlist_xml.push_str("<parameterList>");
 
-    let mut arg_count = if subroutine_table.is_args_empty() { 0 } else { 1 };
+    let mut arg_count = if subroutine_table.has_this() { 1 } else { 0 };
     loop {
         let token = token_tail.next().unwrap();
         if token.value  == ")" {
@@ -1291,7 +1296,6 @@ fn return_with_expression_compiles() {
 // ### Expressions TESTS ###
 #[test]
 fn expressionless_compiles() {
-    // TODO: propper expressions
     let dummy_exp = "x;";
     let dummy_exp_tokens = tokenize(dummy_exp);
     let dummy_exp_xml = "\
