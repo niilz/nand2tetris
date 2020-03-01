@@ -46,13 +46,13 @@ fn main() {
     let parsed_input = analyze_tokens(tokens);
     println!("The tokens have been analyzed and parsed.");
     // Format xml-data (add line breaks)
-    let parsed_and_newline_seperated = seperate_with_newline(&parsed_input);
+    let parsed_and_newline_seperated = seperate_with_newline(parsed_input);
     
     // Write xml to file
     let file_stem = jack_file.file_stem().expect("could not read the file stem of the input file");
     let mut output_file = PathBuf::from(result_dir);
-    output_file.push(file_stem.to_str().unwrap().to_string() + "niilz");
-    output_file.set_extension("xml");
+    output_file.push(file_stem); //.to_str().unwrap().to_string() + "niilz");
+    output_file.set_extension("vm");
     let mut output_file =  fs::File::create(output_file).expect("Could not create file");
     output_file.write_all(parsed_and_newline_seperated.as_bytes()).expect("could not write to file");
     println!("The parsed tokens have been written to file '{:?}'", output_file);
@@ -65,23 +65,15 @@ fn main() {
 }
 
 // Seperate xml elements with New Line
-fn seperate_with_newline(xml: &str) -> String {
-  let len = xml.len();
-  (0..len)
-      .fold(String::new(), |mut res, idx| {
-          res.push_str(&xml[idx..idx+1]);
-          if idx < len-1 && &xml[idx..idx+1] == ">" && &xml[idx+1..idx+2] == "<" {
-              res.push_str("\n");
-          }
-          res
-      }) + "\n"
+fn seperate_with_newline(commands: Vec<String>) -> String {
+  commands.join("\n")
 }
 
 // Tests
 #[test]
 fn new_line_seperation_works() {
     let dummy_parsed_string = analyze_tokens(tokenize("class Test {}"));
-    let dummy_xml_sererated = "<class>\n<keyword> class </keyword>\n<identifier> Test </identifier>\n<symbol> { </symbol>\n<symbol> } </symbol>\n</class>\n";
-    assert_eq!(seperate_with_newline(&dummy_parsed_string), dummy_xml_sererated);
+    let dummy_xml_sererated = String::from("TODO Concat with n");
+    assert_eq!(seperate_with_newline(dummy_parsed_string), dummy_xml_sererated);
 
 }
