@@ -1,6 +1,7 @@
 use super::token::{ Token, TokenType, TokenStream };
 use super::tokenizer::{ tokenize };
 use super::tables::{ Var, ClassTable, SubroutineTable };
+use super::code_writer::*;
 
 static OPERATORS: &[&str] = &["+", "-", "*", "/", "&", "|", "<", ">", "=", "~"];
 static UNARY_OP: &[&str] = &["-", "~"];
@@ -27,10 +28,8 @@ pub fn analyze_tokens(tokens: Vec<Token>) -> Vec<String> {
     token_stream.next();
     
     // parse the body
-    class_byte_code.push(String::from("// Class-Body START"));
     let body = build_class_body(&mut token_stream, &class_name.value);
     class_byte_code.extend(body);
-    class_byte_code.push(String::from("// Class-Body END"));
     
     // after body has finished, check for closing curly
     let closing_curly = &token_stream.next().unwrap().value;
@@ -39,10 +38,7 @@ pub fn analyze_tokens(tokens: Vec<Token>) -> Vec<String> {
     };
 
     match token_stream.next() {
-        None => {
-            println!("EOF, Parsing has finished successfully");
-            class_byte_code
-        },
+        None => class_byte_code,
         Some(token) => panic!("Expected eof, but got token {:?}", token), 
     }
 }
@@ -66,16 +62,14 @@ fn build_class_body(mut token_tail: &mut TokenStream, class_name: &str) -> Vec<S
         // Has no output, but registers the class-vars
         compile_class_vars(token_tail, &mut class_table);
         class_body_byte_code.push(
-            format!("// Class-Var-Dec Fields: #{}, Statics: #{}",
+            format!("// Class-Var-Dec Fields: #{}, Statics: #{}\n",
                 class_table.get_next_idx("field"), class_table.get_next_idx("static")));
     }
 
     // Add subroutines
-    class_body_byte_code.push(String::from("// Subroutine START"));
     while token_tail.peek().unwrap().value != "}" {
         class_body_byte_code.extend(compile_subroutine(&mut token_tail, class_name, &class_table));
     }
-    class_body_byte_code.push(String::from("// Subroutine END"));
     class_body_byte_code
 }
 
@@ -132,8 +126,6 @@ fn compile_subroutine(token_tail: &mut TokenStream, class_name: &str, class_tabl
     let routine_keyword = token_tail.next().unwrap();
     let _return_type = token_tail.next().unwrap();
     let routine_name = token_tail.next().unwrap();
-    subroutine_byte_code.push(format!("function {}.{}", class_name, routine_name.value));
-    // result_subroutine_xml.push_str(&format!("<SUBROUTINE_DEC>{}</SUBROUTINE_DEC>", routine_name.value));
     
     if routine_keyword.value == "method" {
         // Create this-arg
@@ -143,7 +135,7 @@ fn compile_subroutine(token_tail: &mut TokenStream, class_name: &str, class_tabl
     }
     // Add parameters to Subroutine-Table (no code-creation)
     let _param_list = compile_paramlist(token_tail, &mut subroutine_table);
-    subroutine_byte_code.push(format!("// Parameterlist handled Args: #{}", subroutine_table.get_next_idx("arg")));
+    subroutine_byte_code.push(format!("function {}.{} {}\n", class_name, routine_name.value, subroutine_table.get_next_idx("arg")));
 
     // Ignore opening curly-brace
     token_tail.next();
@@ -197,7 +189,7 @@ fn compile_subroutine_body(token_tail: &mut TokenStream, class_table: &ClassTabl
         }
         // Registers local Vars (no byte code)
         compile_var_dec(token_tail, subroutine_table);
-        subroutine_body_byte_code.push(format!("// Local-Var-Dec Locals: #{}", subroutine_table.get_next_idx("local")));
+        subroutine_body_byte_code.push(format!("// Local-Var-Dec Locals: #{}\n", subroutine_table.get_next_idx("local")));
     }
 
     // If closing curly appears, subroutine has no statements and can return early
@@ -359,32 +351,49 @@ fn compile_do(token_tail: &mut TokenStream, class_table: &ClassTable, subroutine
     
     let mut do_byte_code = Vec::new();
 
-    // Add do, [className,.,] subroutine as xml
+    // Add do, [className,.,] subroutine-call (which is some name and a expression-list)
     let _do_keyword_token = token_tail.next().unwrap();
+
+    do_byte_code.extend(compile_subroutine_call(token_tail, class_table, subroutine_table));
+
+    // Next Token must be Semicolon -> dump it
+    let semicolon = token_tail.next().unwrap();
+    if  semicolon.value != ";" {
+        panic!("Do-Statement must be followed by ; but got {}", semicolon.value);
+    }
+    do_byte_code
+}
+fn compile_subroutine_call(token_tail: &mut TokenStream, class_table: &ClassTable, subroutine_table: &SubroutineTable) -> Vec<String> {
+    let mut subroutine_call_byte_code = Vec::new();
     let mut function_name = token_tail.next().unwrap().value.to_string();
 
     if token_tail.peek().unwrap().value == "." {
+        println!("DOT appeared, so second-half of CALL is created");
         // Add dot and second-function-part to function_name
         let dot_token = token_tail.next().unwrap();
         function_name.push_str(&dot_token.value);
         let second_identifier_token = token_tail.next().unwrap();
         function_name.push_str(&second_identifier_token.value);
+        // Dump opening paranthese
+        token_tail.next();
+        let (args, expression_list_byte_code) = compile_expression_list(token_tail, class_table, subroutine_table);
+        subroutine_call_byte_code.extend(expression_list_byte_code);
+        let function_call = format!("call {} {}", function_name, args);
+        subroutine_call_byte_code.push(function_call);
+        // Dump closing paranthese
+        token_tail.next();
+    } else {
+        // Dump opening paranthese
+        token_tail.next();
+        let (args, expression_list_byte_code) = compile_expression_list(token_tail, class_table, subroutine_table);
+        subroutine_call_byte_code.extend(expression_list_byte_code);
+        let function_call = format!("call {} // args: {}", function_name, args);
+        subroutine_call_byte_code.push(function_call);
+        // Dump closing paranthese
+        token_tail.next();
     }
-    // Add function name/label TODO: num of arguments
-
-    // Ignore opening expression-list paranthese
-    token_tail.next();
-    // add expression-list
-    do_byte_code.push(String::from("// Do-Args START"));
-    do_byte_code.extend(compile_expression(token_tail, class_table, subroutine_table));
-    do_byte_code.push(String::from("// Do-Args END"));
-    
-    // Ignore closing expression-list paranthese
-    token_tail.next();
-    // Ignore closing expression-list  semicolon
-    token_tail.next();
-
-    do_byte_code
+    // Do NOT Dump semicolon
+    subroutine_call_byte_code
 }
 
 
@@ -393,9 +402,20 @@ fn compile_return(token_tail: &mut TokenStream, class_table: &ClassTable, subrou
     
     let mut return_byte_code = Vec::new();
     // add return-keyword
-    return_byte_code.push(format!("TODO: Write return {:?}", token_tail.next().unwrap().value));
+    let maybe_return_token = token_tail.next();
     // add expressions (if present)
     return_byte_code.extend(compile_expression(token_tail, class_table, subroutine_table));
+    
+    return_byte_code.push(write_return("NOTYPE"));
+    if let Some(return_token) = maybe_return_token {
+        match return_token.value.as_ref() {
+            "return" => return_byte_code.push(String::from("return")),
+            other => panic!("Expected return-keyword but got '{}'", return_token.value),
+        }
+    } else {
+        panic!("Expected return-keyword but Token was NONE!");
+    }
+    
     // Ignore semicolon after return-statement
     let semicolon = token_tail.next().unwrap();
     if semicolon.value != ";" {
@@ -427,122 +447,73 @@ fn compile_expression(token_tail: &mut TokenStream, class_table: &ClassTable, su
 
     // If no term, just return empty Vec
     let next_token = token_tail.peek().unwrap().value.to_string();
-    if [")", ";", "]"].contains(&next_token.as_ref())  {
+    if [")", ",", ";"].contains(&next_token.as_ref())  {
+        println!("BROKE IN EXPRESSION");
         return expression_byte_code;
     }
 
     // add term
-    expression_byte_code.push(String::from("// Term START"));
     expression_byte_code.extend(compile_term(token_tail, class_table, subroutine_table));
-    expression_byte_code.push(String::from("// Term END"));
     
-    // add more expressions if there are any
-    if token_tail.peek().unwrap().value == "," {
-        // Ignore Comma
-        token_tail.next();
-        expression_byte_code.extend(compile_expression(token_tail, class_table, subroutine_table));
-        // maybe: return expression_byte_code;
-    }
     expression_byte_code
+}
+
+fn compile_expression_list(token_tail: &mut TokenStream, class_table: &ClassTable, subroutine_table: &SubroutineTable) -> (u32, Vec<String>) {
+    println!("Expression_List got called");
+    let mut expression_list_byte_code = Vec::new();
+    let mut var_count = 0;
+    loop {
+        expression_list_byte_code.extend(compile_expression(token_tail, class_table, subroutine_table));
+        var_count += 1;
+        if token_tail.peek().unwrap().value != "," {
+            break;
+        }
+        println!("{}", var_count);
+    }
+    // Dump semicolon
+    (var_count, expression_list_byte_code)
 }
 
 // Compile term
 fn compile_term(token_tail: &mut TokenStream, class_table: &ClassTable, subroutine_table: &SubroutineTable) -> Vec<String> {
     let mut term_byte_code = Vec::new();
-    // add nested unary-op-exprssion if present
-    // TODO: UNARY-OP
-    // if UNARY_OP.contains(&token_tail.peek().unwrap().value.as_ref()) {
-    //     // start nested expression
-    //     result_term_xml.push_str("<term>");
-    //     // add unary-operator
-    //     result_term_xml.push_str(&next_as_xml(token_tail));
-    //     // add the nested term
-    //     result_term_xml.push_str(&compile_term(token_tail, "", class_table, subroutine_table));
-    //     // finish nested expression
-    //     result_term_xml.push_str("</term>");
-    // }
-
-    let next_token = token_tail.peek().unwrap().value.to_string();
-    // add array indexing or exressions if present
-    if ["(", "["].contains(&next_token.as_ref()) {
-        // result_term_xml.push_str(if next_token == "(" { "<term>" } else { "" });
-        
-        // Ignore opening bracket/parantese
-        token_tail.next();
-        // add expression
-        term_byte_code.extend(compile_expression(token_tail, class_table, subroutine_table));
-        // Ignore closing bracket/parantese
-        token_tail.next();
-        // result_term_xml.push_str(if next_token == "(" { "</term>" } else { "" });
-        // add more terms if there are any
-        if OPERATORS.contains(&token_tail.peek().unwrap().value.as_ref()) {
-            // first add the term
-            term_byte_code.extend(compile_term(token_tail, class_table, subroutine_table));
-            // then add the operator
-            term_byte_code.push(token_tail.next().unwrap().value.to_string());
+    loop {
+        // add subunits of term if present
+        let token = token_tail.peek();
+        if let Some(t) = token {
+            match t.value.as_ref() {
+                // If Term ends -> return
+                ")" | ";" => break,
+                // Handle Term in parantheses
+                "(" => {
+                    // Dump open paranthese
+                    token_tail.next();
+                    // Add Expression inside parantheses
+                    term_byte_code.extend(compile_expression(token_tail, class_table, subroutine_table));
+                    // Dump closing paranthese
+                    token_tail.next();
+                },
+                "[" => (), // TODO: Handle indexing
+                // Must be single Term, so check for Operators, followed by more term(s)
+                _ => {
+                    let term = token_tail.next().unwrap();
+                    if OPERATORS.contains(&token_tail.peek().unwrap().value.as_ref()) {
+                        term_byte_code.push(write_push(term));
+                        let op = token_tail.next().unwrap();
+                        // Add term
+                        term_byte_code.extend(compile_term(token_tail, class_table, subroutine_table));
+                        // Add op as postfix
+                        term_byte_code.push(write_op(op));
+                    } else {
+                        term_byte_code.push(write_push(term));
+                        break;
+                    }
+                },
+            }
+        } else {
+            // If this is reached, Token mus be None -> something went wrong
+            panic!("No Token is '{:?}', but compile_term has been called.", token);
         }
-    }
-
-    // if term is finished return it
-    if [")", ";", "]", ","].contains(&token_tail.peek().unwrap().value.as_ref())  {
-        // ignore closing thing
-        token_tail.next();
-        return term_byte_code;
-    }
-    
-    // start adding Expression term(s)
-    term_byte_code.push(String::from("// Term inside <term> START"));
-    
-    let term_token = token_tail.next().unwrap();
-    
-    // add subunits of term if present
-    let next_token = token_tail.peek().unwrap().value.to_string();
-    // Write call if present
-    if &next_token == "." {
-        // Call statement base
-        let mut call_code = format!("call {}", term_token.value);
-        let dot = token_tail.next().unwrap();
-        call_code.push_str(&dot.value);
-        let second_call_part_token = token_tail.next().unwrap();
-        call_code.push_str(&second_call_part_token.value);
-        term_byte_code.push(call_code);
-        // TODO: arguments count
-        
-        // Ignore opening ExpressionList paranthese
-        token_tail.next();
-        term_byte_code.push(String::from("expressionList of call START"));
-        term_byte_code.extend(compile_expression(token_tail, class_table, subroutine_table));
-        term_byte_code.push(String::from("expressionList of call START"));
-        // Ignore closing Expression-List paranthese
-        token_tail.next();
-    } else if term_token.token_type == TokenType::Identifier {
-        // First token must be Identifier, look up and add Data
-        let var = lookup(&term_token.value, class_table, subroutine_table);
-        // TODO: propper push commands in VM
-        term_byte_code.push(format!("Var Name: {} and DATA: {:?}", term_token.value, var));
-    } else {
-        // Add single term (like number)
-        term_byte_code.push(format!("Should be pushed: {}", term_token.value));
-    }
-
-    // TODO: INDEXING
-    // if next_token == "[" {
-    //     // add indexing part of term if present
-    //     result_term_xml.push_str(&compile_term(token_tail, "", class_table, subroutine_table));
-    // }
-
-    // end adding Expression term
-    term_byte_code.push(String::from("// Term inside <term> End"));
-    
-    // add op if available
-    let mut op = None;
-    if OPERATORS.contains(&token_tail.peek().unwrap().value.as_ref()) {
-        // add operator
-        op = Some(token_tail.next().unwrap().value.to_string());
-    }
-    term_byte_code.extend(compile_term(token_tail, class_table, subroutine_table));
-    if op != None {
-        term_byte_code.push(format!("OPERATOR: {}", op.unwrap()));
     }
     term_byte_code
 }
@@ -945,6 +916,6 @@ mod tests {
     fn term_compiles() {
         let dummy_term_tokens = tokenize("i / 2;");
         let dummy_term_xml = vec![String::from("TODO")];
-        assert_eq!(compile_term(&mut dummy_term_tokens.iter().peekable(), &mut Vec::new(), &mut ClassTable::default(), &mut SubroutineTable::default()), dummy_term_xml);
+        assert_eq!(compile_term(&mut dummy_term_tokens.iter().peekable(), &mut ClassTable::default(), &mut SubroutineTable::default()), dummy_term_xml);
     }
 }
