@@ -1,5 +1,5 @@
 use crate::tokenizer::{ tokenize };
-use crate::compiler::{ analyze_tokens };
+use crate::compiler::{ Compiler };
 use std::fs;
 use std::io::prelude::*;
 use std::path::{ Path, PathBuf };
@@ -22,6 +22,7 @@ pub fn process_input(path: &Path) {
 
 
   fn parse_jack_file(jack_file: &Path, result_dir: &Path) {
+    let file_stem = jack_file.file_stem().expect("could not read the file stem of the input file");
     // Read a File
     let jack_code = fs::read_to_string(jack_file).expect("could not read file");
     
@@ -29,13 +30,13 @@ pub fn process_input(path: &Path) {
     let tokens = tokenize(&jack_code);
     println!("The code from the file has been tokenized.");
     // Parse tokenized code
-    let parsed_input = analyze_tokens(tokens);
+    let mut compiler = Compiler::new(&tokens, file_stem.to_str().unwrap());
+    let parsed_input = compiler.analyze_tokens();
     println!("The tokens have been analyzed and parsed.");
     // Format xml-data (add line breaks)
     let parsed_and_newline_seperated = seperate_with_newline(parsed_input);
     
     // Write xml to file
-    let file_stem = jack_file.file_stem().expect("could not read the file stem of the input file");
     let mut output_file = PathBuf::from(result_dir);
     output_file.push(file_stem); //.to_str().unwrap().to_string() + "niilz");
     output_file.set_extension("vm");
@@ -53,8 +54,10 @@ fn seperate_with_newline(commands: Vec<String>) -> String {
 // Tests
 #[test]
 fn new_line_seperation_works() {
-    let dummy_parsed_code = analyze_tokens(tokenize("class Test {}"));
-    let dummy_xml_sererated = String::from("TODO Concat with n");
-    assert_eq!(seperate_with_newline(dummy_parsed_code), dummy_xml_sererated);
+  let dummy_tokens = tokenize("class Test {}");
+  let mut compiler = Compiler::new(&dummy_tokens, "Test");
+  let dummy_parsed_code = compiler.analyze_tokens();
+  let dummy_xml_sererated = String::from("TODO Concat with n");
+  assert_eq!(seperate_with_newline(dummy_parsed_code), dummy_xml_sererated);
 
 }

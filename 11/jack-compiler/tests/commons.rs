@@ -19,22 +19,14 @@ r"// ByteCode for class 'Main'
 
 function Main.main 0
 
-// SubroutineBody START
-// Subroutine-Statements START
-// Statement Nr.1 START
 push constant 1
 push constant 2
 push constant 3
 call Math.multiply 2
 add
 call Output.printInt 1
-// Statement Nr.1 END
-// Statement Nr.2 START
 pop temp 0
-return
-// Statement Nr.2 END
-// Subroutine-Statements END
-// SubroutineBody END".to_string()
+return".to_string()
 }
 
 pub fn get_class_table() -> ClassTable {
