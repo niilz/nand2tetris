@@ -15,6 +15,7 @@ pub struct Compiler<'a> {
     class_table: ClassTable,
     subroutine_table: SubroutineTable,
     current_subroutine: Subroutine<'a>,
+    label_count: u32,
 }
 #[derive(Default)]
 pub struct Subroutine<'a> {
@@ -43,6 +44,7 @@ impl<'a> Compiler<'a> {
             class_table: ClassTable::default(),
             subroutine_table: SubroutineTable::default(),
             current_subroutine: Subroutine::default(),
+            label_count: 0,
         }
     }
 
@@ -270,7 +272,6 @@ impl<'a> Compiler<'a> {
     fn compile_statement(&mut self) -> Vec<String> {
         let mut statement_byte_code = Vec::new();
         
-        let mut statement_count = 1;
         loop {
             if self.token_tail.peek() == None {
                 panic!("token_tail has no next value in compile_statement. But should either see have } of sourrounding subroutine-body or next statement or else")
@@ -282,12 +283,12 @@ impl<'a> Compiler<'a> {
             let statement_token_value = self.token_tail.peek().unwrap().value.to_string();
             match statement_token_value.as_str() {
                 "let" => statement_byte_code.extend(self.compile_let()),
-                "if" | "while" => statement_byte_code.extend(self.compile_conditional_statement(statement_count)),
+                "if" => statement_byte_code.extend(self.compile_if_statement()),
+                "while" => statement_byte_code.extend(self.compile_while_statement()),
                 "do" => statement_byte_code.extend(self.compile_do()),
                 "return" => statement_byte_code.extend(self.compile_return()),
                 s => panic!("unexpected statement-keyword of: {:?}", s),
             }
-            statement_count += 1;
         }
         statement_byte_code
     }
@@ -344,57 +345,98 @@ impl<'a> Compiler<'a> {
         }
         let_byte_code
     }
-    // Compile CONDITION statement "if, while"
-    fn compile_conditional_statement(&mut self, statement_count: u32) -> Vec<String> {
-        let mut conditional_byte_code = Vec::new();
+    // Compile if-statement
+    fn compile_if_statement(&mut self) -> Vec<String> {
+        let mut if_byte_code = Vec::new();
         // Construct start-label (e.g. Myclass.Routine.$1)
-        let start_label = format!("{}.{}.${}", self.class_name, self.get_subroutine_name(), statement_count);
-        conditional_byte_code.push(format!("label {}", start_label));
+        let base_label = format!("{}.{}${}", self.class_name, self.get_subroutine_name(), self.label_count);
+        if_byte_code.push(format!("label {}.IFSTART", base_label));
+        self.label_count += 1;
 
         // get keyword
-        let statement_token = self.token_tail.next().unwrap();
+        let if_keyword = self.token_tail.next().unwrap();
 
         // Dump open paranthese
         self.token_tail.next();
         // Add all expression
-        conditional_byte_code.extend(self.compile_expression());
+        if_byte_code.extend(self.compile_expression());
         // Dump close paranthese
         self.token_tail.next();
 
         // Negate expression
-        conditional_byte_code.push("neg".to_string());
+        if_byte_code.push("not".to_string());
         // Construct else-label
-        let else_label = format!("else.{}", start_label);
-        // Jump to else if condition is true after "neg"
-        conditional_byte_code.push(format!("if-goto {}", else_label));
+        let else_label = format!("{}.ELSESTART", base_label);
+        // Jump to else if condition is true after "neg" (so if condition resolves to false)
+        if_byte_code.push(format!("if-goto {}", else_label));
         
         // Dump opening curly-brace
         self.token_tail.next();
         // add statement-body (includes closing curly brace)
-        conditional_byte_code.extend(self.compile_statement_body());
+        if_byte_code.extend(self.compile_statement_body());
 
-        // If while -> jump back to start
-        if statement_token.value == "while" {
-            conditional_byte_code.push(format!("goto {}", start_label));
-        }
-        // If it got here else must no be performed
-        let end_label = format!("end.{}", start_label);
-        conditional_byte_code.push(format!("goto {}", end_label));
+        // If it got here -> if has been used and else must NOT be performed
+        let end_label = format!("{}.IFEND", base_label);
+        if_byte_code.push(format!("goto {}", end_label));
 
         // Insert else-Label (to be able to jump to it)
-        conditional_byte_code.push(format!("label {}", else_label));
+        // If it got here -> if must have evaluated to false
+        // So run else
+        if_byte_code.push(format!("label {}", else_label));
         
         // in case else is following the previous statement add it
         if self.token_tail.peek().unwrap().value == "else" {
-            conditional_byte_code.extend(self.compile_else());
+            if_byte_code.extend(self.compile_else());
         }
 
         // Insert the end-label (no matter if else is present or not)
         // If no else is present -> else-label is immediately followed by the end-label
-        conditional_byte_code.push(format!("label {}", end_label));
+        if_byte_code.push(format!("label {}", end_label));
+
+        // Return ruslting byte code
+        if_byte_code
+    }
+    // Compile CONDITION statement "if, while"
+    fn compile_while_statement(&mut self) -> Vec<String> {
+        let mut while_byte_code = Vec::new();
+        // Construct start-label (e.g. Myclass.Routine.$1)
+        let base_label = format!("{}.{}${}", self.class_name, self.get_subroutine_name(), self.label_count);
+        let start_label = format!("{}.WHILESTART", base_label);
+        while_byte_code.push(format!("label {}", start_label));
+        self.label_count += 1;
+
+        // get keyword
+        let while_keyword = self.token_tail.next().unwrap();
+
+        // Dump open paranthese
+        self.token_tail.next();
+        // Add all expression
+        while_byte_code.extend(self.compile_expression());
+        // Dump close paranthese
+        self.token_tail.next();
+
+        // Negate expression
+        while_byte_code.push("not".to_string());
+
+        // If true after neg (so condition evaluated to false)
+        // -> leave while loop / jump to end-label
+        let end_label = format!("{}.WHILEEND", base_label);
+        while_byte_code.push(format!("if-goto {}", end_label));
+
+        // Dump opening curly-brace
+        self.token_tail.next();
+        // add statement-body (includes closing curly brace)
+        while_byte_code.extend(self.compile_statement_body());
+
+        // If it got here -> loop statements are performed, so jump back
+        // to start of the while loop
+        while_byte_code.push(format!("goto {}", start_label));
+
+        // Insert the end-label (gets jumped to if while condition evaluates to false)
+        while_byte_code.push(format!("label {}", end_label));
 
         // Return ruslting condition as xml
-        conditional_byte_code
+        while_byte_code
     }
     // Compile ELSE
     fn compile_else(&mut self) -> Vec<String> {
