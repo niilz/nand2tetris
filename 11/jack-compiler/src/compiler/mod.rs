@@ -48,6 +48,9 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn get_size(&self) -> usize {
+        self.class_table.get_field_count()
+    }
     fn set_subroutine(&mut self, name: &'a str, return_type_str: &'a str) {
         let return_type = match return_type_str {
             "void" => ReturnType::Void,
@@ -157,7 +160,6 @@ impl<'a> Compiler<'a> {
         if semicolon != ";" {
             panic!("Semicolon expected as end of ClassVarDec, but '{:?}' was found.", semicolon);
         }
-        self.token_tail.next();
     }
     // soubroutine-compiler
     fn compile_subroutine(&mut self) -> Vec<String> {
@@ -188,7 +190,13 @@ impl<'a> Compiler<'a> {
         let subroutine_body = self.compile_subroutine_body();
         // Now the local-var-count is known. So first add the function label, then the body-statements
         subroutine_byte_code.push(
-            format!("function {}.{} {}\n", self.class_name, self.get_subroutine_name(), self.subroutine_table.get_next_idx("local")));
+            format!("\nfunction {}.{} {}\n", self.class_name, self.get_subroutine_name(), self.subroutine_table.get_next_idx("local")));
+        if routine_keyword.value == "constructor" {
+            let size = self.get_size();
+            subroutine_byte_code.push(format!("push constant {}", size));
+            subroutine_byte_code.push("call Memory.alloc 1".to_string());
+            subroutine_byte_code.push("pop pointer 0".to_string());
+        }
         subroutine_byte_code.extend(subroutine_body);
         // End subroutine
         let closing_curly = self.token_tail.next().unwrap();
@@ -583,7 +591,10 @@ impl<'a> Compiler<'a> {
                 "false" => {
                     term_byte_code.push("push constant 0".to_string());
                 },
-                _ => panic!("Expected identifier true or false but {} was passed", boolean.value),
+                "this" => {
+                    term_byte_code.push("push pointer 0".to_string());
+                }
+                _ => panic!("Expected identifier true or false but '{}' was passed", boolean.value),
             }
             return term_byte_code;
         }

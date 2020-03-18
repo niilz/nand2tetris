@@ -34,6 +34,9 @@ impl ClassTable {
             _ => panic!("invalid class-var-kind of '{}' has been passed.", var_kind),
         }
     }
+    pub fn get_field_count(&self) -> usize {
+        self.fields.len()
+    }
 }
 
 #[derive(Default)]

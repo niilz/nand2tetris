@@ -7,6 +7,7 @@ pub fn write_push(kind: &str, typ: &str, idx_or_value: u32) -> String {
         "constant" => format!("push constant {}", idx_or_value),
         "arg" => format!("push argument {}", idx_or_value),
         "local" => format!("push local {}", idx_or_value),
+        "field" => format!("push this {}", idx_or_value),
         _ => format!("Write_push received type: '{}', value '{}' which is not implemented.", kind, idx_or_value),
     }
 }
@@ -15,6 +16,7 @@ pub fn write_pop(kind: &str, typ: &str, idx: u32) -> String {
     match kind {
         "arg" => format!("pop argument {}", idx),
         "local" => format!("pop local {}", idx),
+        "field" => format!("pop this {}", idx),
         _ => format!("Write_pop received type: '{}', value '{}' which is not implemented.", kind, idx),
     }
 }
@@ -37,7 +39,7 @@ pub fn write_op(operator: &Token) -> String {
 pub fn write_return(subroutine: &Subroutine) -> String {
     match &subroutine.return_type {
         ReturnType::Void => String::from("push constant 0"),
-        _ => String::from(""),
+        _ => String::from("// non_void_no_dummy_0"),
         // rt => format!("RETURN_TYPE of '{:?}' IS NOT IMPLEMENTED YET", rt),
     }
 }
