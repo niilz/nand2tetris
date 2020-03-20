@@ -3,7 +3,7 @@ pub mod code_writer;
 
 use crate::tokenizer::token::{ Token, TokenType, TokenStream };
 use crate::tokenizer::{ tokenize };
-use tables::{ Var, ClassTable, SubroutineTable };
+use tables::{ Var, ClassTable, SubroutineTable, lookup, get_object_type, is_object };
 use code_writer::*;
 
 static OPERATORS: &[&str] = &["+", "-", "*", "/", "&", "|", "<", ">", "=", "~"];
@@ -174,7 +174,8 @@ impl<'a> Compiler<'a> {
         // Update/set subroutine (name & type)
         self.set_subroutine(&routine_name.value, &return_type.value);
         
-        if routine_keyword.value == "method" {
+        let is_method = routine_keyword.value == "method";
+        if is_method {
             // Create this-arg
             let this = Var::new("arg", self.class_name, 0);
             // Add Var to Subrroutine-Table
@@ -189,13 +190,19 @@ impl<'a> Compiler<'a> {
         // Add code in subroutine-body
         let subroutine_body = self.compile_subroutine_body();
         // Now the local-var-count is known. So first add the function label, then the body-statements
+        let local_var_count = self.subroutine_table.get_local_var_count();
         subroutine_byte_code.push(
-            format!("\nfunction {}.{} {}\n", self.class_name, self.get_subroutine_name(), self.subroutine_table.get_next_idx("local")));
+            format!("\nfunction {}.{} {}\n", self.class_name, self.get_subroutine_name(), local_var_count));
+        // If Function is a constructor, allocate space for fields and anchor this to pointer 0
         if routine_keyword.value == "constructor" {
             let size = self.get_size();
             subroutine_byte_code.push(format!("push constant {}", size));
             subroutine_byte_code.push("call Memory.alloc 1".to_string());
             subroutine_byte_code.push("pop pointer 0".to_string());
+        // If Function is method anchor this to pointer 0
+        } else if is_method {
+            subroutine_byte_code.push("push argument 0".to_string());
+            subroutine_byte_code.push("pop pointer 0".to_string())
         }
         subroutine_byte_code.extend(subroutine_body);
         // End subroutine
@@ -473,38 +480,56 @@ impl<'a> Compiler<'a> {
         if  semicolon.value != ";" {
             panic!("Do-Statement must be followed by ; but got '{}'", semicolon.value);
         }
+        // Return zero since do-calls return void
         do_byte_code.push("pop temp 0".to_string());
         do_byte_code
     }
     // Compile Call to a Subroutine
     fn compile_subroutine_call(&mut self) -> Vec<String> {
         let mut subroutine_call_byte_code = Vec::new();
-        let mut function_name = self.token_tail.next().unwrap().value.to_string();
+        let identifier_token = self.token_tail.next().unwrap();
+        let mut function_name = identifier_token.value.to_string();
     
         if self.token_tail.peek().unwrap().value == "." {
-            println!("DOT appeared, so second-half of CALL is created");
             // Add dot and second-function-part to function_name
             let dot_token = self.token_tail.next().unwrap();
+            let is_object = is_object(&function_name, &self.class_table, &self.subroutine_table);
+            if is_object {
+                // Override function-name with Class/Object-type, if it's an object where the method get's called on
+                function_name = get_object_type(&function_name, &self.class_table, &self.subroutine_table);
+                println!("Object_type: {}", function_name);
+            }
             function_name.push_str(&dot_token.value);
             let second_identifier_token = self.token_tail.next().unwrap();
             function_name.push_str(&second_identifier_token.value);
             // Dump opening paranthese
             self.token_tail.next();
+            // Push this as first argument onto the stack if it's a method call
+            if is_object {
+                let Var {kind, typ, idx} = lookup(&identifier_token, &self.class_table, &self.subroutine_table);
+                let kind = if kind == "field" { "this".to_string() } else { kind };
+                subroutine_call_byte_code.push(format!("push {} {}", kind, idx));
+            }
+            // Push arguments onto the stack
             let (args, expression_list_byte_code) = self.compile_expression_list();
             subroutine_call_byte_code.extend(expression_list_byte_code);
+            // Call the function (add 1 to the args if it's a Method-call for this)
+            let args = args + if is_object { 1 } else { 0 };
             let function_call = format!("call {} {}", function_name, args);
             subroutine_call_byte_code.push(function_call);
             // Dump closing paranthese
-            println!("Dumped {} in compile_subroutine_call.", self.token_tail.next().unwrap().value);
+            self.token_tail.next();
         } else {
             // Dump opening paranthese
             self.token_tail.next();
+            // Push this as first argument onto the stack
+            subroutine_call_byte_code.push("push pointer 0".to_string());
             let (args, expression_list_byte_code) = self.compile_expression_list();
             subroutine_call_byte_code.extend(expression_list_byte_code);
-            let function_call = format!("call {} {}", function_name, args);
+            let function_call = format!("call {}.{} {}", self.class_name, function_name, args + 1);
             subroutine_call_byte_code.push(function_call);
             // Dump closing paranthese
-            println!("Dumped {} in compile_subroutine.", self.token_tail.next().unwrap().value);
+            self.token_tail.next();
         }
         // Dump top value on the stack
         println!("CALLED FUNC {}", self.get_subroutine_name());
@@ -533,8 +558,11 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_expression_list(&mut self) -> (u32, Vec<String>) {
-        println!("Expression_List got called");
         let mut expression_list_byte_code = Vec::new();
+        println!("Expression_List got called");
+        if self.token_tail.peek().unwrap().value == ")" {
+            return (0, expression_list_byte_code);
+        }
         let mut var_count = 0;
         loop {
             expression_list_byte_code.extend(self.compile_expression());
@@ -669,25 +697,6 @@ fn is_class_var_start(maybe_token: Option<&&Token>) -> bool {
     maybe_class_var == "static" || maybe_class_var == "field"
 }
 
-
-fn lookup(var: &Token, class_table: &ClassTable, subroutine_table: &SubroutineTable) -> Var {
-    match var.token_type {
-        TokenType::IntegerConstant => {
-            let value = var.value.parse::<u32>().unwrap();
-            Var::new("constant", "_", value)
-        },
-        TokenType::Identifier => {
-            match subroutine_table.get(&var.value) {
-                Some(var) => var,
-                None => match class_table.get(&var.value) {
-                    Some(var) => var,
-                    None => panic!("Variable '{:?}' has not been declared.", var.value),
-                }
-            }
-        },
-        _ => panic!("Lookup for token-type '{:?}' with value '{}' is not implemented", var.token_type, var.value),
-    }
-}
 
 
 // #######################

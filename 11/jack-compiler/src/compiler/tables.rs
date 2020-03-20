@@ -1,4 +1,44 @@
 use std::collections::HashMap;
+use crate::tokenizer::token::{ Token, TokenType };
+
+pub fn lookup(var: &Token, class_table: &ClassTable, subroutine_table: &SubroutineTable) -> Var {
+    match var.token_type {
+        TokenType::IntegerConstant => {
+            let value = var.value.parse::<u32>().unwrap();
+            Var::new("constant", "_", value)
+        },
+        TokenType::Identifier => {
+            match subroutine_table.get(&var.value) {
+                Some(var) => var,
+                None => match class_table.get(&var.value) {
+                    Some(var) => var,
+                    None => panic!("Variable '{:?}' has not been declared.", var.value),
+                }
+            }
+        },
+        _ => panic!("Lookup for token-type '{:?}' with value '{}' is not implemented", var.token_type, var.value),
+    }
+}
+
+pub fn get_object_type(identifier: &str, class_table: &ClassTable, subroutine_table: &SubroutineTable) -> String {
+    match subroutine_table.get(identifier) {
+        Some(var) => var.typ,
+        None => match class_table.get(identifier) {
+            Some(var) => var.typ,
+            None => panic!("Identifier '{}' has not been declared", identifier),
+        }
+    }
+}
+
+pub fn is_object(identifier: &str, class_table: &ClassTable, subroutine_table: &SubroutineTable) -> bool {
+    match subroutine_table.get(identifier) {
+        Some(_) => true,
+        None => match class_table.get(identifier) {
+            Some(_) => true,
+            None => false,
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct ClassTable {
@@ -73,6 +113,9 @@ impl SubroutineTable {
             _ => panic!("invalid subroutine-var-kind of '{}' has been passed.", var_kind),
         }
     }
+    pub fn get_local_var_count(&self) -> usize {
+        self.get_next_idx("local") as usize
+    } 
     pub fn has_this(&self) -> bool {
         !self.args.is_empty()
     }

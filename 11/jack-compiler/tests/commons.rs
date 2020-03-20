@@ -17,8 +17,10 @@ pub fn compile_file_and_get_output() -> String {
 pub fn get_supposed_vm_output() -> String {
 r"// ByteCode for class 'Main'
 
+
 function Main.main 0
 
+push pointer 0
 push constant 1
 push constant 2
 push constant 3
@@ -26,7 +28,9 @@ call Math.multiply 2
 add
 call Output.printInt 1
 pop temp 0
-return".to_string()
+push constant 0
+return
+".to_string()
 }
 
 pub fn get_class_table() -> ClassTable {
