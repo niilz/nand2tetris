@@ -390,26 +390,26 @@ return
 ".to_string()
 }
 
-pub fn get_class_table() -> ClassTable {
-  let mut class_table = ClassTable::default();
-  let var_1 = Var::new("static", "int", 0);
-  class_table.add("first", var_1);
-  let var_2 = Var::new("field", "int", 0);
-  class_table.add("second", var_2);
+// pub fn get_class_table() -> ClassTable {
+//   let mut class_table = ClassTable::default();
+//   let var_1 = Var::new("static", "int", 0);
+//   class_table.add("first", var_1);
+//   let var_2 = Var::new("field", "int", 0);
+//   class_table.add("second", var_2);
 
-  class_table
-}
+//   class_table
+// }
 
-pub fn get_subroutine_table() -> SubroutineTable {
-  let mut subroutine_table = SubroutineTable::default();
-  let local_1 = Var::new("local", "int", 0);
-  subroutine_table.add("subR", local_1);
-  let local_2 = Var::new("local", "int", 0);
-  subroutine_table.add("a", local_2);
-  let local_1 = Var::new("arg", "int", 0);
-  subroutine_table.add("b", local_1);
-  let local_2 = Var::new("arg", "int", 0);
-  subroutine_table.add("sum", local_2);
+// pub fn get_subroutine_table() -> SubroutineTable {
+//   let mut subroutine_table = SubroutineTable::default();
+//   let local_1 = Var::new("local", "int", 0);
+//   subroutine_table.add("subR", local_1);
+//   let local_2 = Var::new("local", "int", 0);
+//   subroutine_table.add("a", local_2);
+//   let local_1 = Var::new("arg", "int", 0);
+//   subroutine_table.add("b", local_1);
+//   let local_2 = Var::new("arg", "int", 0);
+//   subroutine_table.add("sum", local_2);
 
-  subroutine_table
-}
+//   subroutine_table
+// }

@@ -2,12 +2,11 @@ pub mod tables;
 pub mod code_writer;
 
 use crate::tokenizer::token::{ Token, TokenType, TokenStream };
-use crate::tokenizer::{ tokenize };
 use tables::{ Var, ClassTable, SubroutineTable, lookup, get_object_type, is_object };
 use code_writer::*;
 
 static OPERATORS: &[&str] = &["+", "-", "*", "/", "&", "|", "<", ">", "=", "~"];
-static UNARY_OP: &[&str] = &["-", "~"];
+// static UNARY_OP: &[&str] = &["-", "~"];
 
 pub struct Compiler<'a> {
     token_tail: TokenStream<'a>,
@@ -69,9 +68,6 @@ impl<'a> Compiler<'a> {
     }
     fn get_subroutine_name(&self) -> &'a str {
         self.current_subroutine.name
-    }
-    fn get_subroutine_type(&self) -> &ReturnType {
-        &self.current_subroutine.return_type
     }
 
     pub fn analyze_tokens(&mut self) -> Vec<String> {
@@ -262,7 +258,7 @@ impl<'a> Compiler<'a> {
     }
     // Compile VAR-DECLERATION (part of subroutine-body)
     fn compile_var_dec(&mut self) {
-        let var_keyword_token = self.token_tail.next().unwrap();
+        let _var_keyword_token = self.token_tail.next().unwrap();
         let var_type_token = self.token_tail.next().unwrap();
         let var_name_token = self.token_tail.next().unwrap();
         
@@ -331,7 +327,7 @@ impl<'a> Compiler<'a> {
         self.token_tail.next();
         // Get identifier kind, type and index
         let identifier_token = self.token_tail.next().unwrap();
-        let Var {kind, typ, idx} = lookup(identifier_token, &self.class_table, &self.subroutine_table);
+        let Var {kind, typ:_, idx} = lookup(identifier_token, &self.class_table, &self.subroutine_table);
     
         // check if array-indexing occurs
         let is_array = self.token_tail.peek().unwrap().value == "[";
@@ -360,7 +356,7 @@ impl<'a> Compiler<'a> {
             let_byte_code.extend(write_array_access());
         } else {
             // Assign expression to identifier on left side
-            let_byte_code.push(write_pop(&kind, &typ, idx));
+            let_byte_code.push(write_pop(&kind, idx));
         }
     
         // Dump semicolon and return result 
@@ -379,7 +375,7 @@ impl<'a> Compiler<'a> {
         self.label_count += 1;
 
         // get keyword
-        let if_keyword = self.token_tail.next().unwrap();
+        let _if_keyword = self.token_tail.next().unwrap();
 
         // Dump open paranthese
         self.token_tail.next();
@@ -431,7 +427,7 @@ impl<'a> Compiler<'a> {
         self.label_count += 1;
 
         // get keyword
-        let while_keyword = self.token_tail.next().unwrap();
+        let _while_keyword = self.token_tail.next().unwrap();
 
         // Dump open paranthese
         self.token_tail.next();
@@ -516,7 +512,7 @@ impl<'a> Compiler<'a> {
             self.token_tail.next();
             // Push this as first argument onto the stack if it's a method call
             if is_object {
-                let Var {kind, typ, idx} = lookup(&identifier_token, &self.class_table, &self.subroutine_table);
+                let Var {kind, typ:_, idx} = lookup(&identifier_token, &self.class_table, &self.subroutine_table);
                 let kind = if kind == "field" { "this".to_string() } else { kind };
                 subroutine_call_byte_code.push(format!("push {} {}", kind, idx));
             }
@@ -542,8 +538,6 @@ impl<'a> Compiler<'a> {
             self.token_tail.next();
         }
         // Dump top value on the stack
-        println!("CALLED FUNC {}", self.get_subroutine_name());
-        // subroutine_call_byte_code.push("pop temp 0".to_string());
         // Do NOT Dump semicolon
         subroutine_call_byte_code
     }
@@ -557,7 +551,6 @@ impl<'a> Compiler<'a> {
         // If no term, just return empty Vec
         let next_token = self.token_tail.peek().unwrap().value.to_string();
         if [")", ",", ";", "]"].contains(&next_token.as_ref())  {
-            println!("BROKE IN EXPRESSION with {}", next_token);
             return expression_byte_code;
         }
 
@@ -569,7 +562,6 @@ impl<'a> Compiler<'a> {
 
     fn compile_expression_list(&mut self) -> (u32, Vec<String>) {
         let mut expression_list_byte_code = Vec::new();
-        println!("Expression_List got called");
         if self.token_tail.peek().unwrap().value == ")" {
             return (0, expression_list_byte_code);
         }
@@ -693,7 +685,7 @@ impl<'a> Compiler<'a> {
                     term_byte_code.extend(self.compile_subroutine_call());
                     return term_byte_code;
                 }
-                let Var {kind, typ, idx} = lookup(&term, &self.class_table, &self.subroutine_table);
+                let Var {kind, typ:_, idx} = lookup(&term, &self.class_table, &self.subroutine_table);
                 if next_token.value == "[" {
                     // Anchor Array
                     term_byte_code.push(format!("push {} {}", kind, idx));
@@ -711,19 +703,15 @@ impl<'a> Compiler<'a> {
                     return term_byte_code;
                 }
                 if OPERATORS.contains(&next_token.value.as_ref()) {
-                    term_byte_code.push(write_push(&kind, &typ, idx));
+                    term_byte_code.push(write_push(&kind, idx));
                     let op = self.token_tail.next().unwrap();
                     // Add term
                     term_byte_code.extend(self.compile_term());
                     // Add op as postfix
                     term_byte_code.push(write_op(op));
                 } else {
-                    term_byte_code.push(write_push(&kind, &typ, idx));
+                    term_byte_code.push(write_push(&kind, idx));
                 }
-            },
-            _ => {
-                // If this is reached, Token mus be None -> something went wrong
-                panic!("No Token is '{:?}', but compile_term has been called.", token);
             },
         }
         term_byte_code
