@@ -1,5 +1,4 @@
 use jack_compiler::processing::{ process_input };
-use jack_compiler::compiler::tables::{ ClassTable, SubroutineTable, Var };
 use std::path::{ Path };
 use std::fs;
 
@@ -385,6 +384,163 @@ pop temp 0
 goto Square.moveRight$5.IFEND
 label Square.moveRight$5.ELSESTART
 label Square.moveRight$5.IFEND
+push constant 0
+return
+".to_string()
+}
+
+pub fn get_supposed_vm_output_average() -> String {
+r"// ByteCode for class 'Main'
+
+
+function Main.main 4
+
+push constant 18
+call String.new 1
+push constant 72
+call String.appendChar 2
+push constant 111
+call String.appendChar 2
+push constant 119
+call String.appendChar 2
+push constant 32
+call String.appendChar 2
+push constant 109
+call String.appendChar 2
+push constant 97
+call String.appendChar 2
+push constant 110
+call String.appendChar 2
+push constant 121
+call String.appendChar 2
+push constant 32
+call String.appendChar 2
+push constant 110
+call String.appendChar 2
+push constant 117
+call String.appendChar 2
+push constant 109
+call String.appendChar 2
+push constant 98
+call String.appendChar 2
+push constant 101
+call String.appendChar 2
+push constant 114
+call String.appendChar 2
+push constant 115
+call String.appendChar 2
+push constant 63
+call String.appendChar 2
+push constant 32
+call String.appendChar 2
+call Keyboard.readInt 1
+pop local 1
+push local 1
+call Array.new 1
+pop local 0
+push constant 0
+pop local 2
+label Main.main$0.WHILESTART
+push local 2
+push local 1
+lt
+not
+if-goto Main.main$0.WHILEEND
+push local 0
+push local 2
+add
+push constant 16
+call String.new 1
+push constant 69
+call String.appendChar 2
+push constant 110
+call String.appendChar 2
+push constant 116
+call String.appendChar 2
+push constant 101
+call String.appendChar 2
+push constant 114
+call String.appendChar 2
+push constant 32
+call String.appendChar 2
+push constant 97
+call String.appendChar 2
+push constant 32
+call String.appendChar 2
+push constant 110
+call String.appendChar 2
+push constant 117
+call String.appendChar 2
+push constant 109
+call String.appendChar 2
+push constant 98
+call String.appendChar 2
+push constant 101
+call String.appendChar 2
+push constant 114
+call String.appendChar 2
+push constant 58
+call String.appendChar 2
+push constant 32
+call String.appendChar 2
+call Keyboard.readInt 1
+pop temp 0
+pop pointer 1
+push temp 0
+pop that 0
+push local 3
+push local 0
+push local 2
+add
+pop pointer 1
+push that 0
+add
+pop local 3
+push local 2
+push constant 1
+add
+pop local 2
+goto Main.main$0.WHILESTART
+label Main.main$0.WHILEEND
+push constant 15
+call String.new 1
+push constant 84
+call String.appendChar 2
+push constant 104
+call String.appendChar 2
+push constant 101
+call String.appendChar 2
+push constant 32
+call String.appendChar 2
+push constant 97
+call String.appendChar 2
+push constant 118
+call String.appendChar 2
+push constant 101
+call String.appendChar 2
+push constant 114
+call String.appendChar 2
+push constant 97
+call String.appendChar 2
+push constant 103
+call String.appendChar 2
+push constant 101
+call String.appendChar 2
+push constant 32
+call String.appendChar 2
+push constant 105
+call String.appendChar 2
+push constant 115
+call String.appendChar 2
+push constant 32
+call String.appendChar 2
+call Output.printString 1
+pop temp 0
+push local 3
+push local 1
+call Math.divide 2
+call Output.printInt 1
+pop temp 0
 push constant 0
 return
 ".to_string()

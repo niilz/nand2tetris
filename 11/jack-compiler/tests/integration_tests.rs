@@ -1,6 +1,5 @@
 mod commons;
 use jack_compiler::tokenizer::{tokenize};
-use jack_compiler::compiler::tables::{ClassTable, SubroutineTable};
 use jack_compiler::compiler::*;
 
 #[test]
@@ -13,6 +12,12 @@ fn do_integration_seven() {
 fn do_integration_square() {
     let supposed_vm_output = commons::get_supposed_vm_output_square();
     let actual_vm_output = commons::compile_file_and_get_output("Square", "Square");
+    assert_eq!(supposed_vm_output, actual_vm_output);
+}
+#[test]
+fn do_integration_average() {
+    let supposed_vm_output = commons::get_supposed_vm_output_average();
+    let actual_vm_output = commons::compile_file_and_get_output("Average", "Main");
     assert_eq!(supposed_vm_output, actual_vm_output);
 }
 
