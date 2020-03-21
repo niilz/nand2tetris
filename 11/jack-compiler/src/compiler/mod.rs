@@ -334,13 +334,18 @@ impl<'a> Compiler<'a> {
         let Var {kind, typ, idx} = lookup(identifier_token, &self.class_table, &self.subroutine_table);
     
         // check if array-indexing occurs
-        if self.token_tail.peek().unwrap().value == "[" {
+        let is_array = self.token_tail.peek().unwrap().value == "[";
+        if is_array {
+            // Anchor Array inside variable
+            let_byte_code.push(format!("push {} {}", kind, idx));
             // Dump opening square-bracket
             self.token_tail.next();
-            // Add expression inside square-brackets
+            // Add expression inside square-brackets (offset)
             let_byte_code.extend(self.compile_expression());
             // Dump closing square-bracket
             self.token_tail.next();
+            // Add offset to Array-Base-Address
+            let_byte_code.push("add".to_string());
         }
     
         // Dump equal sign
@@ -348,10 +353,15 @@ impl<'a> Compiler<'a> {
         if equal_sign.value != "=" {
             panic!("Expected = in let assignment but got {}.", equal_sign.value);
         }
-        // Handle Expression on right sight of assignment
+        // Handle Expression on right sight of assignment (push onto stack)
         let_byte_code.extend(self.compile_expression());
-        // Assign expression to identifier on left side
-        let_byte_code.push(write_pop(&kind, &typ, idx));
+        // If Array-Assigment avoid stack-collision
+        if is_array {
+            let_byte_code.extend(write_array_access());
+        } else {
+            // Assign expression to identifier on left side
+            let_byte_code.push(write_pop(&kind, &typ, idx));
+        }
     
         // Dump semicolon and return result 
         let semicolon = self.token_tail.next().unwrap();
@@ -546,7 +556,7 @@ impl<'a> Compiler<'a> {
 
         // If no term, just return empty Vec
         let next_token = self.token_tail.peek().unwrap().value.to_string();
-        if [")", ",", ";"].contains(&next_token.as_ref())  {
+        if [")", ",", ";", "]"].contains(&next_token.as_ref())  {
             println!("BROKE IN EXPRESSION with {}", next_token);
             return expression_byte_code;
         }
@@ -610,6 +620,10 @@ impl<'a> Compiler<'a> {
         let token = self.token_tail.peek().unwrap();
         // Handle boolean-values
         match token.token_type {
+            TokenType::StringConstant => {
+                let string_token = self.token_tail.next().unwrap();
+                term_byte_code.extend(write_string(&string_token .value));
+            },
             TokenType::Keyword => {
                 let keyword_token = self.token_tail.next().unwrap();
                 match keyword_token.value.as_ref() {
@@ -642,12 +656,7 @@ impl<'a> Compiler<'a> {
                         term_byte_code.extend(self.compile_expression());
                         // Dump closing paranthese
                         self.token_tail.next();
-                        let maybe_op = self.token_tail.peek().unwrap();
-                        if OPERATORS.contains(&maybe_op.value.as_ref()) {
-                            let op = self.token_tail.next().unwrap();
-                            term_byte_code.extend(self.compile_term());
-                            term_byte_code.push(write_op(op));
-                        }
+                        term_byte_code.extend(self.handle_maybe_op());
                     },
                     // Handle unary-operators
                     "-" | "~" => {
@@ -655,7 +664,18 @@ impl<'a> Compiler<'a> {
                         term_byte_code.extend(self.compile_term());
                         term_byte_code.push(write_unary_op(unaray_op));
                     },
-                    "[" => (), // TODO: Handle indexing
+                    // Handle Array indexing
+                    "[" => {
+                        // TODO: PUSH POINTER 2 POP THAT LOGIC
+                        // Drop opening square-bracket
+                        self.token_tail.next();
+                        // Add Expression inside brackets
+                        term_byte_code.extend(self.compile_expression());
+                        // Dumpt closing square-bracket
+                        self.token_tail.next();
+                        // If more ops are present -> handle them
+                        term_byte_code.extend(self.handle_maybe_op());
+                    },
                     _ => panic!("Symbol '{}' should not have landed in compile_term", token.value),
                 }
             },
@@ -667,13 +687,29 @@ impl<'a> Compiler<'a> {
                 let term = self.token_tail.next().unwrap();
                 // Peek one token further ahead
                 let next_token = self.token_tail.peek().unwrap();
-                if next_token.value == "." || next_token.value == "(" {
+                if [".", "("].contains(&next_token.value.as_ref()) {
                     // Pass the Token-Clone, so that first part of call is not picked off already
                     self.token_tail = tokens_cloned;
                     term_byte_code.extend(self.compile_subroutine_call());
                     return term_byte_code;
                 }
                 let Var {kind, typ, idx} = lookup(&term, &self.class_table, &self.subroutine_table);
+                if next_token.value == "[" {
+                    // Anchor Array
+                    term_byte_code.push(format!("push {} {}", kind, idx));
+                    // Dump opening bracket
+                    self.token_tail.next();
+                    // Push expression inside brackets (offset) onto stack
+                    term_byte_code.extend(self.compile_expression());
+                    // Dump closing bracket()
+                    self.token_tail.next();
+                    // Add offset to Array-Base-Address
+                    term_byte_code.push("add".to_string());
+                    // Access the specific Array-index
+                    term_byte_code.push("pop pointer 1".to_string());
+                    term_byte_code.push("push that 0".to_string());
+                    return term_byte_code;
+                }
                 if OPERATORS.contains(&next_token.value.as_ref()) {
                     term_byte_code.push(write_push(&kind, &typ, idx));
                     let op = self.token_tail.next().unwrap();
@@ -691,6 +727,17 @@ impl<'a> Compiler<'a> {
             },
         }
         term_byte_code
+    }
+
+    fn handle_maybe_op(&mut self) -> Vec<String> {
+        let mut op_byte_code = Vec::new();
+        let maybe_op = self.token_tail.peek().unwrap();
+        if OPERATORS.contains(&maybe_op.value.as_ref()) {
+            let op = self.token_tail.next().unwrap();
+            op_byte_code.extend(self.compile_term());
+            op_byte_code.push(write_op(op));
+        }
+        op_byte_code
     }
 }
 

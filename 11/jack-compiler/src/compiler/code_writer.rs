@@ -36,6 +36,14 @@ pub fn write_op(operator: &Token) -> String {
     }
 }
 
+pub fn write_unary_op(token: &Token) -> String {
+    match token.value.as_ref() {
+        "-" => String::from("neg"),
+        "~" => String::from("not"),
+        op => panic!("Expected unary-operator but got '{}'", op),
+    }
+}
+
 pub fn write_return(subroutine: &Subroutine) -> String {
     match &subroutine.return_type {
         ReturnType::Void => String::from("push constant 0"),
@@ -44,12 +52,32 @@ pub fn write_return(subroutine: &Subroutine) -> String {
     }
 }
 
-pub fn write_unary_op(token: &Token) -> String {
-    match token.value.as_ref() {
-        "-" => String::from("neg"),
-        "~" => String::from("not"),
-        op => panic!("Expected unary-operator but got '{}'", op),
-    }
+pub fn write_string(string: &str) -> Vec<String> {
+    let mut commands = Vec::new();
+    let len = string.len();
+    commands.push(format!("push constant {}", len));
+    commands.push("call String.new 1".to_string());
+    string
+        .chars()
+        .for_each(|c| {
+            commands.push(format!("push constant {}", c as u8));
+            commands.push("call String.appendChar 2".to_string());
+        });
+    commands
+}
+
+pub fn write_array_access() -> Vec<String> {
+    let mut commands = Vec::new();
+    // Save expression on right side of let-assignment to temp
+    commands.push("pop temp 0".to_string());
+    // Put left side expression into pointer 1 (the that segment)
+    commands.push("pop pointer 1".to_string());
+    // Push expression in temp back onto stack
+    commands.push("push temp 0".to_string());
+    // Put right side expression into var on left side
+    commands.push("pop that 0".to_string());
+
+    commands
 }
 
 // TESTS
