@@ -4,9 +4,15 @@ use jack_compiler::compiler::tables::{ClassTable, SubroutineTable};
 use jack_compiler::compiler::*;
 
 #[test]
-fn do_integration() {
-    let supposed_vm_output = commons::get_supposed_vm_output();
-    let actual_vm_output = commons::compile_file_and_get_output();
+fn do_integration_seven() {
+    let supposed_vm_output = commons::get_supposed_vm_output_seven();
+    let actual_vm_output = commons::compile_file_and_get_output("Seven", "Main");
+    assert_eq!(supposed_vm_output, actual_vm_output);
+}
+#[test]
+fn do_integration_square() {
+    let supposed_vm_output = commons::get_supposed_vm_output_square();
+    let actual_vm_output = commons::compile_file_and_get_output("Square", "Square");
     assert_eq!(supposed_vm_output, actual_vm_output);
 }
 
