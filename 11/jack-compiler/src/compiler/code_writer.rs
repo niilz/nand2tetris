@@ -26,7 +26,7 @@ pub fn write_op(operator: &Token) -> String {
         "+" => String::from("add"),
         "-" => String::from("sub"),
         "*" => String::from("call Math.multiply 2"),
-        "/" => String::from("call Math.devide 2"),
+        "/" => String::from("call Math.divide 2"),
         "<" => String::from("lt"),
         ">" => String::from("gt"),
         "=" => String::from("eq"),

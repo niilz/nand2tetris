@@ -607,85 +607,88 @@ impl<'a> Compiler<'a> {
     fn compile_term(&mut self) -> Vec<String> {
         let mut term_byte_code = Vec::new();
         // add subunits of term if present
-        let token = self.token_tail.peek();
+        let token = self.token_tail.peek().unwrap();
         // Handle boolean-values
-        if token.unwrap().token_type == TokenType::Keyword {
-            let boolean = self.token_tail.next().unwrap();
-            match boolean.value.as_ref() {
-                "true" => {
-                    term_byte_code.push("push constant 1".to_string());
-                    term_byte_code.push("neg".to_string());
-                },
-                "false" => {
-                    term_byte_code.push("push constant 0".to_string());
-                },
-                "this" => {
-                    term_byte_code.push("push pointer 0".to_string());
+        match token.token_type {
+            TokenType::Keyword => {
+                let keyword_token = self.token_tail.next().unwrap();
+                match keyword_token.value.as_ref() {
+                    "true" => {
+                        term_byte_code.push("push constant 1".to_string());
+                        term_byte_code.push("neg".to_string());
+                    },
+                    "false" => {
+                        term_byte_code.push("push constant 0".to_string());
+                    },
+                    "this" => {
+                        term_byte_code.push("push pointer 0".to_string());
+                    }
+                    _ => panic!("Expected keyword true, false or this but '{}' was passed", keyword_token.value),
                 }
-                _ => panic!("Expected identifier true or false but '{}' was passed", boolean.value),
-            }
-            return term_byte_code;
-        }
-        if let Some(t) = token {
-            match t.value.as_ref() {
-                // If Term ends -> return
-                ")" => {}, // !!! is never reached !!!!
-                ";" => {
-                    // Do NOT Dump Semicolon
-                    println!("Semicolon break happened in compile_term {}", t.value);
-                },
-                // Handle Term in parantheses
-                "(" => {
-                    // Dump open paranthese
-                    self.token_tail.next();
-                    // Add Expression inside parantheses
-                    term_byte_code.extend(self.compile_expression());
-                    // Dump closing paranthese
-                    self.token_tail.next();
-                    let maybe_op = self.token_tail.peek().unwrap();
-                    if OPERATORS.contains(&maybe_op.value.as_ref()) {
-                        let op = self.token_tail.next().unwrap();
+            },
+            TokenType::Symbol => {
+                match token.value.as_ref() {
+                    // If Term ends -> return
+                    ")" => {}, // !!! is never reached !!!!
+                    ";" => {
+                        // Do NOT Dump Semicolon
+                        println!("Semicolon break happened in compile_term {}", token.value);
+                    },
+                    // Handle Term in parantheses
+                    "(" => {
+                        // Dump open paranthese
+                        self.token_tail.next();
+                        // Add Expression inside parantheses
+                        term_byte_code.extend(self.compile_expression());
+                        // Dump closing paranthese
+                        self.token_tail.next();
+                        let maybe_op = self.token_tail.peek().unwrap();
+                        if OPERATORS.contains(&maybe_op.value.as_ref()) {
+                            let op = self.token_tail.next().unwrap();
+                            term_byte_code.extend(self.compile_term());
+                            term_byte_code.push(write_op(op));
+                        }
+                    },
+                    // Handle unary-operators
+                    "-" | "~" => {
+                        let unaray_op = self.token_tail.next().unwrap();
                         term_byte_code.extend(self.compile_term());
-                        term_byte_code.push(write_op(op));
-                    }
-                },
-                // Handle unary-operators
-                "-" | "~" => {
-                    let unaray_op = self.token_tail.next().unwrap();
+                        term_byte_code.push(write_unary_op(unaray_op));
+                    },
+                    "[" => (), // TODO: Handle indexing
+                    _ => panic!("Symbol '{}' should not have landed in compile_term", token.value),
+                }
+            },
+            // Must be single Term, so check for Operators, followed by more term(s)
+            TokenType::Identifier | TokenType::IntegerConstant => {
+                // Save current State of tokens withouth moving cursor
+                let tokens_cloned = self.token_tail.clone();
+                // Get next token
+                let term = self.token_tail.next().unwrap();
+                // Peek one token further ahead
+                let next_token = self.token_tail.peek().unwrap();
+                if next_token.value == "." || next_token.value == "(" {
+                    // Pass the Token-Clone, so that first part of call is not picked off already
+                    self.token_tail = tokens_cloned;
+                    term_byte_code.extend(self.compile_subroutine_call());
+                    return term_byte_code;
+                }
+                let Var {kind, typ, idx} = lookup(&term, &self.class_table, &self.subroutine_table);
+                if OPERATORS.contains(&next_token.value.as_ref()) {
+                    term_byte_code.push(write_push(&kind, &typ, idx));
+                    let op = self.token_tail.next().unwrap();
+                    // Add term
                     term_byte_code.extend(self.compile_term());
-                    term_byte_code.push(write_unary_op(unaray_op));
-                },
-                "[" => (), // TODO: Handle indexing
-                // Must be single Term, so check for Operators, followed by more term(s)
-                _ => {
-                    // Save current State of tokens withouth moving cursor
-                    let tokens_cloned = self.token_tail.clone();
-                    // Get next token
-                    let term = self.token_tail.next().unwrap();
-                    // Peek one token further ahead
-                    let next_token = self.token_tail.peek().unwrap();
-                    if next_token.value == "." || next_token.value == "(" {
-                        // Pass the Token-Clone, so that first part of call is not picked off already
-                        self.token_tail = tokens_cloned;
-                        term_byte_code.extend(self.compile_subroutine_call());
-                        return term_byte_code;
-                    }
-                    let Var {kind, typ, idx} = lookup(&term, &self.class_table, &self.subroutine_table);
-                    if OPERATORS.contains(&next_token.value.as_ref()) {
-                        term_byte_code.push(write_push(&kind, &typ, idx));
-                        let op = self.token_tail.next().unwrap();
-                        // Add term
-                        term_byte_code.extend(self.compile_term());
-                        // Add op as postfix
-                        term_byte_code.push(write_op(op));
-                    } else {
-                        term_byte_code.push(write_push(&kind, &typ, idx));
-                    }
-                },
-            }
-        } else {
-            // If this is reached, Token mus be None -> something went wrong
-            panic!("No Token is '{:?}', but compile_term has been called.", token);
+                    // Add op as postfix
+                    term_byte_code.push(write_op(op));
+                } else {
+                    term_byte_code.push(write_push(&kind, &typ, idx));
+                }
+            },
+            _ => {
+                // If this is reached, Token mus be None -> something went wrong
+                panic!("No Token is '{:?}', but compile_term has been called.", token);
+            },
         }
         term_byte_code
     }
