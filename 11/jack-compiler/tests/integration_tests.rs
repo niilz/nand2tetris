@@ -20,6 +20,12 @@ fn do_integration_average() {
     let actual_vm_output = commons::compile_file_and_get_output("Average", "Main");
     assert_eq!(supposed_vm_output, actual_vm_output);
 }
+#[test]
+fn do_integration_pong() {
+    let supposed_vm_output = commons::get_supposed_vm_output_pong();
+    let actual_vm_output = commons::compile_file_and_get_output("Pong", "PongGame");
+    assert_eq!(supposed_vm_output, actual_vm_output);
+}
 
 // LET TESTS
 // Let Statement-TEST
