@@ -7,6 +7,7 @@ pub fn write_push(kind: &str, idx_or_value: u32) -> String {
         "arg" => format!("push argument {}", idx_or_value),
         "local" => format!("push local {}", idx_or_value),
         "field" => format!("push this {}", idx_or_value),
+        "static" => format!("push static {}", idx_or_value),
         _ => format!("Write_push received type: '{}', value '{}' which is not implemented.", kind, idx_or_value),
     }
 }
@@ -16,6 +17,7 @@ pub fn write_pop(kind: &str, idx: u32) -> String {
         "arg" => format!("pop argument {}", idx),
         "local" => format!("pop local {}", idx),
         "field" => format!("pop this {}", idx),
+        "static" => format!("pop static {}", idx),
         _ => format!("Write_pop received type: '{}', value '{}' which is not implemented.", kind, idx),
     }
 }
