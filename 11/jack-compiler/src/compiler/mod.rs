@@ -173,7 +173,7 @@ impl<'a> Compiler<'a> {
         let is_method = routine_keyword.value == "method";
         if is_method {
             // Create this-arg
-            let this = Var::new("arg", self.class_name, 0);
+            let this = Var::new("argument", self.class_name, 0);
             // Add Var to Subrroutine-Table
             self.subroutine_table.add("this", this);
         }
@@ -223,7 +223,7 @@ impl<'a> Compiler<'a> {
             let typ_token = token;
             let name_token = self.token_tail.next().unwrap();
             // Create arg-var and add it to Subroutine-Table
-            let arg = Var::new("arg", &typ_token.value, self.subroutine_table.get_next_idx("arg"));
+            let arg = Var::new("argument", &typ_token.value, self.subroutine_table.get_next_idx("argument"));
             // Add arg to Subroutine-Table
             self.subroutine_table.add(&name_token.value, arg);
         }
@@ -353,7 +353,7 @@ impl<'a> Compiler<'a> {
         let_byte_code.extend(self.compile_expression());
         // If Array-Assigment avoid stack-collision
         if is_array {
-            let_byte_code.extend(write_array_access());
+            let_byte_code.extend(write_array_assignment());
         } else {
             // Assign expression to identifier on left side
             let_byte_code.push(write_pop(&kind, idx));
@@ -628,7 +628,10 @@ impl<'a> Compiler<'a> {
                     },
                     "this" => {
                         term_byte_code.push("push pointer 0".to_string());
-                    }
+                    },
+                    "null" => {
+                        term_byte_code.push("push constant 0".to_string());
+                    },
                     _ => panic!("Expected keyword true, false or this but '{}' was passed", keyword_token.value),
                 }
             },
@@ -656,18 +659,6 @@ impl<'a> Compiler<'a> {
                         term_byte_code.extend(self.compile_term());
                         term_byte_code.push(write_unary_op(unaray_op));
                     },
-                    // Handle Array indexing
-                    "[" => {
-                        // TODO: PUSH POINTER 2 POP THAT LOGIC
-                        // Drop opening square-bracket
-                        self.token_tail.next();
-                        // Add Expression inside brackets
-                        term_byte_code.extend(self.compile_expression());
-                        // Dumpt closing square-bracket
-                        self.token_tail.next();
-                        // If more ops are present -> handle them
-                        term_byte_code.extend(self.handle_maybe_op());
-                    },
                     _ => panic!("Symbol '{}' should not have landed in compile_term", token.value),
                 }
             },
@@ -678,7 +669,7 @@ impl<'a> Compiler<'a> {
                 // Get next token
                 let term = self.token_tail.next().unwrap();
                 // Peek one token further ahead
-                let next_token = self.token_tail.peek().unwrap();
+                let next_token = self.token_tail.peek().unwrap().clone();
                 if [".", "("].contains(&next_token.value.as_ref()) {
                     // Pass the Token-Clone, so that first part of call is not picked off already
                     self.token_tail = tokens_cloned;
@@ -686,7 +677,8 @@ impl<'a> Compiler<'a> {
                     return term_byte_code;
                 }
                 let Var {kind, typ:_, idx} = lookup(&term, &self.class_table, &self.subroutine_table);
-                if next_token.value == "[" {
+                let is_array_access = next_token.value == "[";
+                if is_array_access {
                     // Anchor Array
                     term_byte_code.push(format!("push {} {}", kind, idx));
                     // Dump opening bracket
@@ -700,16 +692,19 @@ impl<'a> Compiler<'a> {
                     // Access the specific Array-index
                     term_byte_code.push("pop pointer 1".to_string());
                     term_byte_code.push("push that 0".to_string());
-                    return term_byte_code;
+                    //return term_byte_code;
                 }
-                if OPERATORS.contains(&next_token.value.as_ref()) {
-                    term_byte_code.push(write_push(&kind, idx));
+                let maybe_op = self.token_tail.peek().unwrap();
+                if OPERATORS.contains(&maybe_op.value.as_ref()) {
+                    if !is_array_access {
+                        term_byte_code.push(write_push(&kind, idx));
+                    }
                     let op = self.token_tail.next().unwrap();
                     // Add term
                     term_byte_code.extend(self.compile_term());
                     // Add op as postfix
                     term_byte_code.push(write_op(op));
-                } else {
+                } else if !is_array_access {
                     term_byte_code.push(write_push(&kind, idx));
                 }
             },
@@ -735,6 +730,15 @@ fn is_class_var_start(maybe_token: Option<&&Token>) -> bool {
     maybe_class_var == "static" || maybe_class_var == "field"
 }
 
+// Helper to debut VM-Code
+fn _debug() -> Vec::<String> {
+    let mut debug_calls = Vec::new();
+    debug_calls.push("pop temp 0".to_string());
+    debug_calls.push("push temp 0".to_string());
+    debug_calls.push("call Output.printInt 1".to_string());
+    debug_calls.push("push temp 0".to_string());
+    debug_calls
+}
 
 
 // #######################

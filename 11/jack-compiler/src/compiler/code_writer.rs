@@ -4,7 +4,7 @@ use crate::compiler::{ Subroutine, ReturnType };
 pub fn write_push(kind: &str, idx_or_value: u32) -> String {
     match kind {
         "constant" => format!("push constant {}", idx_or_value),
-        "arg" => format!("push argument {}", idx_or_value),
+        "argument" => format!("push argument {}", idx_or_value),
         "local" => format!("push local {}", idx_or_value),
         "field" => format!("push this {}", idx_or_value),
         "static" => format!("push static {}", idx_or_value),
@@ -14,7 +14,7 @@ pub fn write_push(kind: &str, idx_or_value: u32) -> String {
 
 pub fn write_pop(kind: &str, idx: u32) -> String {
     match kind {
-        "arg" => format!("pop argument {}", idx),
+        "argument" => format!("pop argument {}", idx),
         "local" => format!("pop local {}", idx),
         "field" => format!("pop this {}", idx),
         "static" => format!("pop static {}", idx),
@@ -67,7 +67,7 @@ pub fn write_string(string: &str) -> Vec<String> {
     commands
 }
 
-pub fn write_array_access() -> Vec<String> {
+pub fn write_array_assignment() -> Vec<String> {
     let mut commands = Vec::new();
     // Save expression on right side of let-assignment to temp
     commands.push("pop temp 0".to_string());

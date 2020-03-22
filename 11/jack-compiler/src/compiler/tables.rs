@@ -88,7 +88,7 @@ pub struct SubroutineTable {
 impl SubroutineTable {
     pub fn add(&mut self, name: &str, var: Var) {
         match var.kind.as_ref() {
-            "arg" => {
+            "argument" => {
                 self.args.insert(name.to_string(), var);
             },
             "local" => {
@@ -108,7 +108,7 @@ impl SubroutineTable {
     }
     pub fn get_next_idx(&self, var_kind: &str) -> u32 {
         match var_kind {
-            "arg" => self.args.len() as u32,
+            "argument" => self.args.len() as u32,
             "local" => self.locals.len() as u32,
             _ => panic!("invalid subroutine-var-kind of '{}' has been passed.", var_kind),
         }
