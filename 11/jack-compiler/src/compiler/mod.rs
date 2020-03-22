@@ -662,7 +662,8 @@ impl<'a> Compiler<'a> {
                     _ => panic!("Symbol '{}' should not have landed in compile_term", token.value),
                 }
             },
-            // Must be single Term, so check for Operators, followed by more term(s)
+            // Must be single Term (IntegerConstant or Variable)
+            // So resolve the term and check for possibly more Operators, followed by more term(s)
             TokenType::Identifier | TokenType::IntegerConstant => {
                 // Save current State of tokens withouth moving cursor
                 let tokens_cloned = self.token_tail.clone();
@@ -671,14 +672,16 @@ impl<'a> Compiler<'a> {
                 // Peek one token further ahead
                 let next_token = self.token_tail.peek().unwrap().clone();
                 if [".", "("].contains(&next_token.value.as_ref()) {
-                    // Pass the Token-Clone, so that first part of call is not picked off already
+                    // Reassign the Token-Clone as token_tail, so that the first part
+                    // of the call statement is not picked off already
                     self.token_tail = tokens_cloned;
                     term_byte_code.extend(self.compile_subroutine_call());
+                    // EXIT the function
                     return term_byte_code;
                 }
+                // Here it is not a function call, but could be an Array-access
                 let Var {kind, typ:_, idx} = lookup(&term, &self.class_table, &self.subroutine_table);
-                let is_array_access = next_token.value == "[";
-                if is_array_access {
+                if next_token.value == "[" {
                     // Anchor Array
                     term_byte_code.push(format!("push {} {}", kind, idx));
                     // Dump opening bracket
@@ -693,19 +696,22 @@ impl<'a> Compiler<'a> {
                     term_byte_code.push("pop pointer 1".to_string());
                     term_byte_code.push("push that 0".to_string());
                     //return term_byte_code;
+                } else {
+                    // It's not an array so just push the
+                    // variable/IntegerConstant onto the stack
+                    term_byte_code.push(write_push(&kind, idx));
                 }
+                // There might be an op and then more terms -> handle that case
+                // (Must peek again because the cursor might have moved during
+                // Array-indexing part above)
                 let maybe_op = self.token_tail.peek().unwrap();
                 if OPERATORS.contains(&maybe_op.value.as_ref()) {
-                    if !is_array_access {
-                        term_byte_code.push(write_push(&kind, idx));
-                    }
+                    // Save the operator to use as postfix
                     let op = self.token_tail.next().unwrap();
-                    // Add term
+                    // Add next term after op
                     term_byte_code.extend(self.compile_term());
                     // Add op as postfix
                     term_byte_code.push(write_op(op));
-                } else if !is_array_access {
-                    term_byte_code.push(write_push(&kind, idx));
                 }
             },
         }
