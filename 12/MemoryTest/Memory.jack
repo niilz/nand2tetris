@@ -1,0 +1,86 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Memory.jack
+
+/**
+ * This library provides two services: direct access to the computer's main
+ * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
+ * consists of 32,768 words, each holding a 16-bit binary number.
+ */ 
+class Memory {
+    static Array arr;
+    static Array heap;
+    static Array freeList;
+
+    /** Initializes the class. */
+    function void init() {
+        let arr = 0;
+        // Baseaddress of the Heap
+        let heap = 2048;
+        // FreeList starts at Heap-Base
+        let freeList = heap;
+        // First FreeList is at Memory 2048 (which is where the heap starts)
+        let heap[0] = freeList;
+        // Total length starts with 14334 which is max: 16384 - base: 2048 - 2 for overhead
+        let heap[1] = 14334;
+        return;
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) {
+        return arr[address];
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) {
+        let arr[address] = value;
+        return;
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. */
+    function int alloc(int size) {
+        var int blockBase;
+        var int idx;
+        var int space;
+        let space = 0;
+
+        // search for some memory segment big enough to fit the object + overhead
+        while (space < (size + 2)) {
+            // Address of freeList - Address of heap is the idx on the heap
+            let idx = freeList - heap;
+            // assign the value, inside the heap at that index, to the freeList 
+            // it's like calling next())
+            let freeList = heap[idx]
+            // The space should be one index up
+            let space = heap[idx + 1];
+        }
+        // We have found a fitting segment
+        // Cut off the needed bit from the end to reserve it for the object
+        let blockBase = freeList + 2 + space - size;
+        // Save the size of the object, which is now the size of this segment
+        // at one index up
+        let blockBase[-1] = size;
+        // Also store the reduced size on the freeList we cut of space
+        do Output.printInt(freeList);
+        do Output.println();
+        let freeList[1] = space - (size + 2);
+        do Output.printInt(freeList[1]);
+        do Output.println();
+        // Return the base address to the caller (address after next and size)
+        return blockBase;
+    }
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(Array o) {
+        // Connect the currently freeList to be the next list after
+        // the one we are handing back to the pool. This should be stored
+        // at memory address - 2. On memory -1 we still have the size of this segment
+        let o[-2] = freeList;
+        // Assign this newly retrieved segment to be the head of the linked-freeLists
+        let freeList = o;
+        return;
+    }    
+}
