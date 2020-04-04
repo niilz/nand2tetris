@@ -42,8 +42,6 @@ class Memory {
         var int blockBase;
         var int idx, start, space;
         let space = heap[freeList + 1];
-        // do Output.printInt(space);
-        // do Output.println();
         let start = freeList;
         // search for some memory segment big enough to fit the object + overhead
         while (space < (size + 2)) {
@@ -58,7 +56,7 @@ class Memory {
             // Assign the value, inside the heap at index for next free segment, to freeList 
             // (it's like calling next())
             let freeList = heap[freeList];
-            // The space should be one index up
+            // The available space should be one index up
             let space = heap[freeList + 1];
         }
         // We have found a fitting segment
@@ -79,16 +77,16 @@ class Memory {
     /** De-allocates the given object (cast as an array) by making
      *  it available for future allocations. */
     function void deAlloc(Array o) {
+        var int blockBaseHeapIdx;
         // Connect the currently freeList to be the next list after
         // the one we are handing back to the pool. This should be stored
         // at the objects memory address - 2.
         // (On memory -1 we still have the size of this segment
         // from when we allocated the object)
-        let o[-2] = freeList;
+        let blockBaseHeapIdx = o - 2 - heap;
+        let heap[blockBaseHeapIdx] = freeList;
         // Assign this newly retrieved segment to be the head of the linked-freeLists.
-        // Subtract the heapBase address to store teh heap-idx.
-        let heap[freeList] = o - heap;
-        let freeList = o - heap;
+        let freeList = blockBaseHeapIdx;
         return;
     }    
 }
