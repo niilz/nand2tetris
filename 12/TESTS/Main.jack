@@ -12,8 +12,9 @@ class Main {
         // var int i;
 
         do Screen.setColor(true);
-        do Screen.drawLine(0,0,250,250);        // niilz angle down
-        do Screen.drawLine(0,250,250,0);        // niilz angle right
+        do Screen.drawLine(0,0,250,40);        // niilz angle down
+        do Screen.drawLine(0,40,250,0);        // niilz angle right
+        do Screen.drawLine(5,0,5,80);        // niilz vertical line
         // while(i < 100) {
         //     do Screen.drawPixel(i, i);
         //     let i = i + 1;

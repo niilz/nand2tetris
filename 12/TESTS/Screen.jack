@@ -87,6 +87,39 @@ class Screen {
 
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
     function void drawLine(int x1, int y1, int x2, int y2) {
+        if ((x1 = x2) | (y1 = y2)) {
+            do Screen.drawStraightLine(x1, y1, x2, y2);
+        } else {
+            do Screen.drawDiagonal(x1, y1, x2, y2);
+        }
+        return;
+    }
+
+    function void drawStraightLine(int x1, int y1, int x2, int y2) {
+        var boolean down;
+        var int start, end;
+        // Vertical Line
+        if (x1 = x2) {
+            do Output.printInt(1);
+            let start = Math.min(y1, y2);
+            let end = Math.max(y1, y2);
+            while (start < (end + 1)) {
+                do Screen.drawPixel(x1, start);
+                let start = start + 1;
+            }
+        } else {
+            // Horizontal Line
+            let start = Math.min(x1, x2);
+            let end = Math.max(x1, x2);
+            while (start < (end + 1)) {
+                do Screen.drawPixel(start, y1);
+                let start = start + 1;
+            }
+        }
+        return;
+    }
+
+    function void drawDiagonal(int x1, int y1, int x2, int y2) {
         var int dx, dy, diff;
         var boolean down;
         let dx = x2 - x1;
@@ -123,6 +156,7 @@ class Screen {
         return;
     }
 
+
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      * and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
@@ -130,7 +164,7 @@ class Screen {
         let lines = y2 - y1;
         let line = 0;
         while (line < lines) {
-            do Screen.drawLine(x1, y1, x2, y1);
+            do Screen.drawStraightLine(x1, y1, x2, y1);
             let y1 = y1 + 1;
             let line = line + 1;
         }
