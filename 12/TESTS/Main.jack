@@ -12,9 +12,9 @@ class Main {
         // var int i;
 
         do Screen.setColor(true);
-        do Screen.drawLine(0,0,250,40);        // niilz angle down
-        do Screen.drawLine(0,40,250,0);        // niilz angle right
-        do Screen.drawLine(5,0,5,80);        // niilz vertical line
+        // do Screen.drawLine(0,0,250,40);        // niilz angle down
+        // do Screen.drawLine(0,40,250,0);        // niilz angle right
+        // do Screen.drawLine(5,0,5,80);        // niilz vertical line
         // while(i < 100) {
         //     do Screen.drawPixel(i, i);
         //     let i = i + 1;
@@ -32,15 +32,15 @@ class Main {
         do Screen.drawLine(280,90,345,35);        // roof
         do Screen.drawLine(345,35,410,90);        // roof
 
-        // do Screen.drawCircle(140,60,30);          // sun
-        // do Screen.drawLine(140,26, 140, 6);       
-        // do Screen.drawLine(163,35,178,20);       
-        // do Screen.drawLine(174,60,194,60);       
-        // do Screen.drawLine(163,85,178,100);       
-        // do Screen.drawLine(140,94,140,114);       
-        // do Screen.drawLine(117,85,102,100);       
-        // do Screen.drawLine(106,60,86,60);       
-        // do Screen.drawLine(117,35,102,20);       
+        do Screen.drawCircle(140,60,30);          // sun
+        do Screen.drawLine(140,26, 140, 6);       
+        do Screen.drawLine(163,35,178,20);       
+        do Screen.drawLine(174,60,194,60);       
+        do Screen.drawLine(163,85,178,100);       
+        do Screen.drawLine(140,94,140,114);       
+        do Screen.drawLine(117,85,102,100);       
+        do Screen.drawLine(106,60,86,60);       
+        do Screen.drawLine(117,35,102,20);       
         
         return;
     }

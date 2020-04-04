@@ -90,7 +90,14 @@ class Screen {
         if ((x1 = x2) | (y1 = y2)) {
             do Screen.drawStraightLine(x1, y1, x2, y2);
         } else {
-            do Screen.drawDiagonal(x1, y1, x2, y2);
+            // If user intended right to left
+            // Invert the call
+            if (x1 > x2) {
+                do Screen.drawDiagonal(x2, y2, x1, y1);
+            } else {
+                // left to right (regular case)
+                do Screen.drawDiagonal(x1, y1, x2, y2);
+            }
         }
         return;
     }
@@ -100,7 +107,6 @@ class Screen {
         var int start, end;
         // Vertical Line
         if (x1 = x2) {
-            do Output.printInt(1);
             let start = Math.min(y1, y2);
             let end = Math.max(y1, y2);
             while (start < (end + 1)) {
@@ -173,6 +179,25 @@ class Screen {
 
     /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
     function void drawCircle(int x, int y, int r) {
+        var int dy, halfLine, x1, x2;
+        // Handle overflow
+        if (r > 181) { return; }
+        // Top of Circle = -r
+        let dy = -r;
+        while (dy < 1) {
+            // Horizontal distance from middle vertical line of circle
+            // until it hits the circle outline. Get's calculated with
+            // r^2 = dy^2 + halfLine^2 => halfLine^2 = r^2 - dy^2
+            let halfLine = Math.sqrt((r * r) - (dy * dy));
+            // Left x value (where line starts) is halfLine away from center.
+            let x1 = x - halfLine;
+            let x2 = x + halfLine;
+            // Draw line in top half of the circle
+            do Screen.drawStraightLine(x1, y + dy, x2, y + dy);
+            // Draw line in bottom half of the circle
+            do Screen.drawStraightLine(x1, y - dy, x2, y - dy);
+            let dy = dy + 1;
+        }
         return;
     }
 }
