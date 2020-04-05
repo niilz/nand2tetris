@@ -29,7 +29,8 @@ class Main {
         do Screen.drawLine(140,94,140,114);       
         do Screen.drawLine(117,85,102,100);       
         do Screen.drawLine(106,60,86,60);       
-        do Screen.drawLine(117,35,102,20);       
+        do Screen.drawLine(117,35,102,20);  
+
         
         return;
     }
