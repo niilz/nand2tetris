@@ -1,0 +1,157 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Keyboard.jack
+
+/**
+ * A library for handling user input from the keyboard.
+ */
+class Keyboard {
+    static int keyboard;
+
+    /** Initializes the keyboard. */
+    function void init() {
+        let keyboard = 24576;
+        return;
+    } 
+
+    /**
+     * Returns the character of the currently pressed key on the keyboard;
+     * if no key is currently pressed, returns 0.
+     *
+     * Recognizes all ASCII characters, as well as the following keys:
+     * new line = 128 = String.newline()
+     * backspace = 129 = String.backspace()
+     * left arrow = 130
+     * up arrow = 131
+     * right arrow = 132
+     * down arrow = 133
+     * home = 134
+     * End = 135
+     * page up = 136
+     * page down = 137
+     * insert = 138
+     * delete = 139
+     * ESC = 140
+     * F1 - F12 = 141 - 152
+     */
+    function char keyPressed() {
+        var int keyCode;
+        let keyCode = Memory.peek(keyboard);
+        if (keyCode = 0) {
+            return 0;
+        }
+        return keyCode;
+    }
+
+    /**								
+     * Waits until a key is pressed on the keyboard and released,
+     * then echoes the key to the screen, and returns the character 
+     * of the pressed key.
+     */
+    function char readChar() {
+        var int c;
+        do Output.printChar(0);
+        // While nothing is typed -> do nothing
+        while (Keyboard.keyPressed() = 0) {}
+        // Record the key, that is pressed until it is released
+        let c = Keyboard.keyPressed();
+        while (~(Keyboard.keyPressed() = 0)) {}
+        // First move cursor back, to delete cursor-square,
+        // then print char character
+        // finally return it's value
+        do Output.backSpace();
+        do Output.printChar(c);
+        return c;
+    }
+
+    /**								
+     * Displays the message on the screen, reads from the keyboard the entered
+     * text until a newline character is detected, echoes the text to the screen,
+     * and returns its value. Also handles user backspaces.
+     */
+    function String readLine(String message) {
+        var char c;
+        var String input;
+        // Create a big String-Object...maaaybe not so good
+        // But reallocating a bigger string for every append is costful
+        // and way more work 😅
+        let input = String.new(50);
+        do Output.printString(message);
+        // Keep going until newLine-character (128)
+        // Funny enough -> backspace just works....🤷🏼‍♂️
+        let c = 0;
+        while (~(c = 128)) {
+            let c = Keyboard.readChar();
+            if (c = 129) {
+                // only erase the character, if the string is not already empty
+                if (input.length() > 0) {
+                    do input.eraseLastChar();
+                }
+            } else {
+                do input.appendChar(c);
+            }
+        }
+        // Erase trailing char....don't know why
+        do input.eraseLastChar();
+        return input;
+    }   
+
+    /**								
+     * Displays the message on the screen, reads from the keyboard the entered
+     * text until a newline character is detected, echoes the text to the screen,
+     * and returns its integer value (until the first non-digit character in the
+     * entered text is detected). Also handles user backspaces. 
+     */
+    function int readInt(String message) {
+        var int c, num;
+        var boolean neg, keepAdding;
+        // Stop signals, whether we have reached the end of the number, that's input
+        let keepAdding = true;
+        do Output.printString(message);
+        // Keep going until newLine-character (128) or not numeric (48: 0 - 57: 9)
+        // Take care of possible sign (-)
+        let c = Keyboard.readChar();
+        // If the first char is a "-"" result is negative
+        if (c = 45) {
+            let neg = true;
+        } else {
+            // But if it's a number, save the number
+            if (Keyboard.isNum(c)) {
+                let num = c - 48;
+            } else {
+                // It is not a number, so immediately stop adding to the result value
+                let keepAdding = false;
+            }
+        }
+        // Keep going until newline (128)
+        while (~(c = 128)) {
+            let c = Keyboard.readChar();
+            // If backspace cut of last number
+            if (c = 129) {
+                let num = num / 10;
+            } else {
+                if (keepAdding & Keyboard.isNum(c)) {
+                    // Cover the case where num is 0
+                    if (num = 0) {
+                        let num = c - 48;
+                    } else {
+                        let num = (num * 10) + (c - 48);
+                    }
+                }
+            }
+        }
+        if (neg) {
+            let num = -num;
+        }
+        return num;
+    }
+
+    // Helper to check if char is numeric
+    function boolean isNum(char c) {
+        if ((c > 47) & (c < 58)) {
+            return true;
+        }
+        return false;
+    }
+}
