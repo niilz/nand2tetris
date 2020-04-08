@@ -31,18 +31,17 @@ class Sys {
     function void wait(int duration) {
         var int i, j, k, l;
         let i = 0;
-        let j = 0;
-        let k = 0;
-        let l = 0;
+        let j = 1;
         // Try to keep the operating system busy for the right amount of time
-        while (i < (duration * 10000)) {
-            do Math.sqrt(9999);
-            while (j < (duration * 10000)) {
+        while (i < duration) {
+            while (j < 500) {
                 do Math.sqrt(9999);
-                while (k < (duration * 10000)) {
-                    do Math.sqrt(9999);
-                    let k = k + 1;
-                }
+                do Math.sqrt(9999);
+                do Math.sqrt(9999);
+                do Math.sqrt(9999);
+                do Math.sqrt(9999);
+                do Math.sqrt(9999);
+                do Math.sqrt(9999);
                 let j = j + 1;
             }
             let i = i + 1;
