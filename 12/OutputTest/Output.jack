@@ -267,7 +267,9 @@ class Output {
         }
         return;
     }
- 
+    
+    /** Displays the given integer starting at the cursor location,
+     *  and advances the cursor appropriately. */
     function void printInt(int i) {
         var String numStr;
         var int size, rest;
