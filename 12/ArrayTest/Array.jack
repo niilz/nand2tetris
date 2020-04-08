@@ -12,7 +12,6 @@
  * data types.
  */
 class Array {
-    field int base;
 
     /** Constructs a new Array of the given size. */
     function Array new(int size) {
