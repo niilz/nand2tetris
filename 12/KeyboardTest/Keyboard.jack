@@ -104,46 +104,10 @@ class Keyboard {
      * entered text is detected). Also handles user backspaces. 
      */
     function int readInt(String message) {
-        var int c, num;
-        var boolean neg, keepAdding;
-        // Stop signals, whether we have reached the end of the number, that's input
-        let keepAdding = true;
-        do Output.printString(message);
-        // Keep going until newLine-character (128) or not numeric (48: 0 - 57: 9)
-        // Take care of possible sign (-)
-        let c = Keyboard.readChar();
-        // If the first char is a "-"" result is negative
-        if (c = 45) {
-            let neg = true;
-        } else {
-            // But if it's a number, save the number
-            if (Keyboard.isNum(c)) {
-                let num = c - 48;
-            } else {
-                // It is not a number, so immediately stop adding to the result value
-                let keepAdding = false;
-            }
-        }
-        // Keep going until newline (128)
-        while (~(c = 128)) {
-            let c = Keyboard.readChar();
-            // If backspace cut of last number
-            if (c = 129) {
-                let num = num / 10;
-            } else {
-                if (keepAdding & Keyboard.isNum(c)) {
-                    // Cover the case where num is 0
-                    if (num = 0) {
-                        let num = c - 48;
-                    } else {
-                        let num = (num * 10) + (c - 48);
-                    }
-                }
-            }
-        }
-        if (neg) {
-            let num = -num;
-        }
+        var String numStr;
+        var int num;
+        let numStr = Keyboard.readLine(message);
+        let num = numStr.intValue();
         return num;
     }
 
