@@ -67,6 +67,7 @@ class Output {
         do Output.create(52,16,24,28,26,25,63,24,24,60,0,0); // 4
         do Output.create(53,63,3,3,31,48,48,48,51,30,0,0);   // 5
         do Output.create(54,28,6,3,3,31,51,51,51,30,0,0);    // 6
+
         do Output.create(55,63,49,48,48,24,12,12,12,12,0,0); // 7
         do Output.create(56,30,51,51,51,30,51,51,51,30,0,0); // 8
         do Output.create(57,30,51,51,51,62,48,48,24,14,0,0); // 9
@@ -267,26 +268,21 @@ class Output {
         return;
     }
  
-    /** Displays the given integer starting at the cursor location,
-     *  and advances the cursor appropriately. */
     function void printInt(int i) {
-        var int num, rest;
-        if (i = 0) {
-            do Output.printChar(48);
-            return;
+        var String numStr;
+        var int size, rest;
+        // Calculate how big the size of the String has to be 
+        // So we can fit in the entire number
+        // Take one extra space in case the number is negative
+        let size = 1;
+        let rest = Math.abs(i);
+        while (rest > 0) {
+            let size = size + 1;
+            let rest = rest / 10;
         }
-        if (i < 0) {
-            do Output.printChar(45);
-            let i = Math.abs(i);
-        }
-        let num = Output.modulo(i, 10);
-        let rest = i / 10;
-        if (rest = 0) {
-            do Output.printChar(num + 48);
-            return;
-        }
-        do Output.printInt(rest);
-        do Output.printChar(num + 48);
+        let numStr = String.new(size);
+        do numStr.setInt(i);
+        do Output.printString(numStr);
         return;
     }
 
@@ -307,6 +303,8 @@ class Output {
         if (cursorRow < 0) {
             let cursorRow = 22;
         }
+        // Draw space to clear the rectangle
+        do Output.printChar(32);
         return;
     }
 }
