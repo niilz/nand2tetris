@@ -236,6 +236,8 @@ class Output {
         let map = charMaps[c];
         // Iterate over every of the 11 line-values in that char's value-map
         while (i < 11) {
+            // Erase whats currently drawn in that position
+            let grid[offset] = grid[offset] & (32512 / leftPad);
             // Assign the value to memory segment.
             // But don't erase the values in the lower significant bits
             // of the 16 bit memory segment.
