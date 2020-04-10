@@ -10,9 +10,9 @@ class Sys {
 
     /** Performs all the initializations required by the OS. */
     function void init() {
-        do Keyboard.init();
-        do Math.init();
         do Memory.init();
+        do Math.init();
+        do Keyboard.init();
         do Output.init();
         do Screen.init();
 
@@ -34,14 +34,7 @@ class Sys {
         let j = 1;
         // Try to keep the operating system busy for the right amount of time
         while (i < duration) {
-            while (j < 500) {
-                do Math.sqrt(9999);
-                do Math.sqrt(9999);
-                do Math.sqrt(9999);
-                do Math.sqrt(9999);
-                do Math.sqrt(9999);
-                do Math.sqrt(9999);
-                do Math.sqrt(9999);
+            while (j < 4000) {
                 let j = j + 1;
             }
             let i = i + 1;
