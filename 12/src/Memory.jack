@@ -1,0 +1,92 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Memory.jack
+
+/**
+ * This library provides two services: direct access to the computer's main
+ * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
+ * consists of 32,768 words, each holding a 16-bit binary number.
+ */ 
+class Memory {
+    static Array arr;
+    static Array heap;
+    static int freeList;
+
+    /** Initializes the class. */
+    function void init() {
+        let arr = 0;
+        // Baseaddress of the Heap
+        let heap = 2048;
+        // FreeList starts at Heap-Base
+        let freeList = 0;
+        // Total length starts with 14334 which is max: 16384 - base: 2048 - 2 for overhead
+        let heap[1] = 14334;
+        return;
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) {
+        return arr[address];
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) {
+        let arr[address] = value;
+        return;
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. */
+    function int alloc(int size) {
+        var int blockBase;
+        var int idx, start, space;
+        let space = heap[freeList + 1];
+        let start = freeList;
+        // search for some memory segment big enough to fit the object + overhead
+        while (space < (size + 2)) {
+            // If next list is equal to the one we started with, we're once through
+            // all available lists and none were big enough.
+            // Hence we have no memory anymore.
+            if (start = heap[freeList]) {
+                do Output.printString("Not enough memory to call alloc()");
+                do Output.println();
+                do Sys.error("1");
+            }
+            // Assign the value, inside the heap at index for next free segment, to freeList 
+            // (it's like calling next())
+            let freeList = heap[freeList];
+            // The available space should be one index up
+            let space = heap[freeList + 1];
+        }
+        // We have found a fitting segment
+        // Cut off the needed size from the end to reserve it for the object
+        // Meaning return the idx on the heap which is as far at the end as possible
+        // but where the object still fits in.
+        let blockBase = freeList + 2 + space - size;
+        // Save the size of the object, which is now the size of this segment
+        // at one index up. So we have that size once we deallocate.
+        let heap[blockBase - 1] = size;
+        // Also store the reduced size on the freeList we've cut space of from
+        let heap[freeList + 1] = space - (size + 2);
+        // Return the heap index of the block an the heap + plus the heaps base address
+        // to the caller (heapBase + heapIdx = actual memory location)
+        return blockBase + heap;
+    }
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(Array o) {
+        var int blockBaseHeapIdx;
+        // Connect the currently freeList to be the next list after
+        // the one we are handing back to the pool. This should be stored
+        // at the objects memory address - 2.
+        // (On memory -1 we still have the size of this segment
+        // from when we allocated the object)
+        let blockBaseHeapIdx = o - 2 - heap;
+        let heap[blockBaseHeapIdx] = freeList;
+        // Assign this newly retrieved segment to be the head of the linked-freeLists.
+        let freeList = blockBaseHeapIdx;
+        return;
+    }    
+}

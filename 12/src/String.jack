@@ -1,0 +1,188 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/String.jack
+
+/**
+ * Represents character strings. In addition for constructing and disposing
+ * strings, the class features methods for getting and setting individual
+ * characters of the string, for erasing the string's last character,
+ * for appending a character to the string's end, and more typical
+ * string-oriented operations.
+ */
+class String {
+    field int length, capacity;
+    field Array chars;
+
+    /** constructs a new empty string with a maximum length of maxLength
+     *  and initial length of 0. */
+    constructor String new(int maxLength) {
+        if (maxLength = 0) {
+            let maxLength = 1;
+        }
+        let chars = Array.new(maxLength);
+        let capacity = maxLength;
+        let length = 0;
+        return this;
+    }
+
+    /** Disposes this string. */
+    method void dispose() {
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    /** Returns the current length of this string. */
+    method int length() {
+        return length;
+    }
+
+    /** Returns the character at the j-th location of this string. */
+    method char charAt(int j) {
+        return chars[j];
+    }
+
+    /** Sets the character at the j-th location of this string to c. */
+    method void setCharAt(int j, char c) {
+        // If user tries to set char outside of the String's capacity -> throw an error
+        if (j > capacity) {
+            do Sys.error(1);
+        }
+        // Set the char at the desired index
+        let chars[j] = c;
+        // Correct the length if j is bigger than the current length
+        if (j > length) {
+            // By one if it is exactly the length
+            if (j = length) {
+                let length = length + 1;
+            } else {
+                // Otherwise the length is the idx of j plus 1
+                let length = j + 1;
+            }
+        }
+        return;
+    }
+
+    /** Appends c to this string's end and returns this string. */
+    method String appendChar(char c) {
+        if (capacity < (length + 1)) {
+            do Sys.error(1);
+        }
+        let chars[length] = c;
+        let length = length + 1;
+        return this;
+    }
+
+    /** Erases the last character from this string. */
+    method void eraseLastChar() {
+        // String cannot be erases pass the 0th index
+        if (length = 0) {
+            do Sys.error(1);
+        }
+        let chars[length - 1] = 0;
+        let length = length - 1;
+        return;
+    }
+
+    /** Returns the integer value of this string, 
+     *  until a non-digit character is detected. */
+    method int intValue() {
+        var int num, idx;
+        var boolean isNeg;
+        let idx = 0;
+        let isNeg = false;
+        // If first char in String is 45 (whis is a "-") the number is negative
+        if (chars[0] = 45) {
+            let isNeg = true;
+            let idx = 1;
+        }
+        // Assign first char in String to number
+        // TODO: handle the case where there is no number in the String
+        let num = chars[idx] - 48;
+        let idx = idx + 1;
+        // Also check to not index outside the String's length
+        while (String.isNumeric(chars[idx]) & (idx < (length))) {
+            // Move the number by one decimal position and add its value
+            // which is 48 less than it's charcode-value
+            let num = (num * 10) + (chars[idx] - 48);
+            // Bump up the idx
+            let idx = idx + 1;
+        }
+        // No more numeric chars in the string
+        // Check for negative sign and return the value
+        if (isNeg) {
+            return -num;
+        }
+        return num;
+    }
+
+    // Helper to check whether some char is numeric
+    // Nummerics are on charcodes 48 - 57
+    function boolean isNumeric(int charcode) {
+        if ((charcode > 47) & (charcode < 58)) {
+            return true;
+        }
+        return false;
+    }
+
+    /** Sets this string to hold a representation of the given value. */
+    method void setInt(int val) {
+        var int idx, rest;
+        let length = String.numLen(val);
+        // SIZE SHOULD BE SET BY THE CALLER
+        if (val = 0) {
+            let chars[0] = 48;
+            return;
+        } 
+        if (val < 0) {
+            // set 0th index to hold the "-" if number is negative
+            let chars[0] = 45;
+        }
+        let idx = 1;
+        let val = Math.abs(val);
+        while (val > 0) {
+            let rest = String.modulo(val, 10);
+            let val = val / 10;
+            let chars[length - idx] = rest + 48;
+            let idx = idx + 1;
+        }
+        return;
+    }
+
+    // Helper to calculate Modulo
+    function int modulo(int dividend, int divisor) {
+        return dividend - ((dividend / divisor) * divisor);
+    }
+
+    // Helper to calc the length of a number
+    function int numLen(int num) {
+        var int rest, len;
+        var boolean isNeg;
+        let isNeg = false;
+        if (num < 0) {
+            let isNeg = true;
+        }
+        let rest = Math.abs(num);
+        while (rest > 0) {
+            let rest = rest / 10;
+            let len = len + 1;
+        }
+        if (isNeg) { return len + 1; }
+        return len;
+    }
+
+    /** Returns the new line character. */
+    function char newLine() {
+        return 128;
+    }
+
+    /** Returns the backspace character. */
+    function char backSpace() {
+        return 129;
+    }
+
+    /** Returns the double quote (") character. */
+    function char doubleQuote() {
+        return 34;
+    }
+}

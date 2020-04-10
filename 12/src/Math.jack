@@ -1,0 +1,175 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Math.jack
+
+/**
+ * A library of commonly used mathematical functions.
+ * Note: Jack compilers implement multiplication and division using OS method calls.
+ */
+class Math {
+    static Array twoToThe;
+    /** Initializes the library. */
+    function void init() {
+        let twoToThe = Array.new(16);
+        let twoToThe[0] = 1;
+        let twoToThe[1] = 2;
+        let twoToThe[2] = 4;
+        let twoToThe[3] = 8;
+        let twoToThe[4] = 16;
+        let twoToThe[5] = 32;
+        let twoToThe[6] = 64;
+        let twoToThe[7] = 128;
+        let twoToThe[8] = 256;
+        let twoToThe[9] = 512;
+        let twoToThe[10] = 1024;
+        let twoToThe[11] = 2048;
+        let twoToThe[12] = 4096;
+        let twoToThe[13] = 8192;
+        let twoToThe[14] = 16384;
+        let twoToThe[15] = 32767+1;
+        return;
+    }
+
+    /** Returns the absolute value of x. */
+    function int abs(int x) {
+        if (x < 0) {
+            return -x;
+        } else {
+            return x;
+        }
+     }
+
+    /** Returns the product of x and y. 
+     *  When a Jack compiler detects the multiplication operator '*' in the 
+     *  program's code, it handles it by invoking this method. In other words,
+     *  the Jack expressions x*y and multiply(x,y) return the same value.
+     */
+    // Takes care of operand sign and uses _mult() to deal
+    // with actual Multiplication
+    function int multiply(int x, int y) {
+        var int mult;
+        let mult = Math._mult(Math.abs(x), Math.abs(y));
+
+        if ((x < 0) = (y < 0)) {
+            return mult;
+        } else {
+            return -mult;
+        }
+    }
+    // Actual Multiplication-Logic
+    function int _mult(int x, int y) {
+        // Returns x*y, where x, y ≥ 0
+        var int i, sum, shiftedX;
+        var boolean bitSet;
+        let i = 0;
+        let sum = 0;
+        let shiftedX = x;
+        while ((twoToThe[i] - 1) < y) {
+            let bitSet = Math.bit(y, i);
+            if (bitSet) {
+                let sum = sum + shiftedX;
+            }
+            let shiftedX = shiftedX + shiftedX;
+            let i = i + 1; 
+        }
+        return sum;
+    }
+
+    // Helper to test whether the i-th bit is set
+    function boolean bit(int x, int j) {
+        var int mask, match;
+        let mask = -1;
+        let mask = mask - twoToThe[j];
+        let match = mask | x;
+        if (match = -1) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /** Returns the integer part of x/y.
+     *  When a Jack compiler detects the multiplication operator '/' in the 
+     *  program's code, it handles it by invoking this method. In other words,
+     *  the Jack expressions x/y and divide(x,y) return the same value.
+     */
+    // Takes care of the case operand sign and uses _div(x, y) to perform the
+    // actual division logic
+    function int divide(int x, int y) {
+        var int div;
+        let div = Math._div(Math.abs(x), Math.abs(y));
+
+        if ((x < 0) = (y < 0)) {
+            return div;
+        } else {
+            return -div;
+        }
+    }
+    // Actual Division-Logic
+    function int _div(int x, int y) {
+        var int q, calc;
+        
+        if ((y > x) | (y < 0)) {
+            return 0;
+        }
+        let q = Math.divide(x, y + y);
+        let calc = x - (2 * q * y);
+        if (calc < y) {
+            return q + q;
+        } else {
+            return q + q + 1;
+        }
+    }
+
+    /** Returns the integer part of the square root of x. */
+    function int sqrt(int x) {
+        var int y, n, j, squared;
+        let y = 0;
+        // N = halb of the possible bits
+        let n = 8;
+        // Start with 256 - 1
+        let j = twoToThe[n] - 1;
+        while (j > -1) {
+            let squared = (y + j) * (y + j);
+            if (((squared < x) | (squared = x)) & (squared > 0)) {
+                let y = y + j;
+            }
+            let n = n - 1;
+            let j = twoToThe[n] - 1;
+        }
+        return y;
+    }
+
+    // Not used (yet)
+    function int pow(int base, int pow) {
+        var int sum, i;
+        let sum = 1;
+        let i = 0;
+        while (i < pow) {
+            let sum = sum * base;
+            let i = i + 1;
+        }
+        return sum;
+    }
+
+    /** Returns the greater number. */
+    function int max(int a, int b) {
+        if (a > b) {
+            return a;
+        } else {
+            return b;
+        }
+    }
+
+    /** Returns the smaller number. */
+    function int min(int a, int b) {
+        if (a < b) {
+            return a;
+        } else {
+            return b;
+        }
+    }
+
+    
+}
